@@ -23,3 +23,11 @@ class InboxConfig(InboxBaseModel):
 
 class InboxDoc(InboxBaseModel):
     inbox: list[InboxConfig] | None = None
+
+
+class InboxEmail(InboxBaseModel):
+    headers: dict[str, str]
+    subject: str
+    from_address: list[str]
+    recipients: list[str]
+    tags: list[str] | None = None
