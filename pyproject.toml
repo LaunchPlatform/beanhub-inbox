@@ -3,5 +3,9 @@ name = "beanhub-inbox"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.13"
-dependencies = []
+requires-python = ">=3.11"
+dependencies = [
+    "jinja2>=3.1.6",
+    "pydantic>=2.11.2",
+    "pyyaml>=6.0.2",
+]
