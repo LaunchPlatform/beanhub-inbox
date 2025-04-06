@@ -1,9 +1,19 @@
 import pytest
+from jinja2.sandbox import SandboxedEnvironment
 
 from .factories import InboxEmailFactory
+from beanhub_inbox.data_types import ArchiveInboxAction
+from beanhub_inbox.data_types import InboxAction
+from beanhub_inbox.data_types import InboxConfig
 from beanhub_inbox.data_types import InboxEmail
 from beanhub_inbox.data_types import InboxMatch
 from beanhub_inbox.processor import match_inbox_email
+from beanhub_inbox.processor import process_inbox_email
+
+
+@pytest.fixture
+def template_env() -> SandboxedEnvironment:
+    return SandboxedEnvironment()
 
 
 @pytest.mark.parametrize(
@@ -145,3 +155,37 @@ from beanhub_inbox.processor import match_inbox_email
 )
 def test_match_inbox_email(email: InboxEmail, match: InboxMatch, expected: bool):
     assert match_inbox_email(email=email, match=match) == expected
+
+
+@pytest.mark.parametrize(
+    "email, inbox_configs, expected",
+    [
+        (
+            InboxEmailFactory(
+                id="mock-id",
+                subject="foo",
+            ),
+            [
+                InboxConfig(
+                    match=InboxMatch(subject="foo"),
+                    action=ArchiveInboxAction(
+                        output_file="path/to/{{ id }}",
+                    ),
+                )
+            ],
+            ArchiveInboxAction(output_file="path/to/mock-id"),
+        ),
+    ],
+)
+def test_process_inbox_email(
+    template_env: SandboxedEnvironment,
+    email: InboxEmail,
+    inbox_configs: list[InboxConfig],
+    expected: InboxAction | None,
+):
+    assert (
+        process_inbox_email(
+            template_env=template_env, email=email, inbox_configs=inbox_configs
+        )
+        == expected
+    )

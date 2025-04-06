@@ -23,8 +23,8 @@ class InboxMatch(InboxBaseModel):
 
 
 class ArchiveInboxAction(InboxBaseModel):
-    type: typing.Literal[ActionType.archive] = pydantic.Field(ActionType.archive)
     output_file: str
+    type: typing.Literal[ActionType.archive] = pydantic.Field(ActionType.archive)
 
 
 class IgnoreInboxAction(InboxBaseModel):
