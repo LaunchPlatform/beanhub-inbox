@@ -3,7 +3,7 @@ name = "beanhub-inbox"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.10"
 dependencies = [
     "jinja2>=3.1.6",
     "pydantic>=2.11.2",
