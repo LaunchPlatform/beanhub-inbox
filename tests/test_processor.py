@@ -86,6 +86,26 @@ from beanhub_inbox.processor import match_inbox_email
             InboxMatch(tags=["a", "other"]),
             False,
         ),
+        (
+            InboxEmailFactory(headers=dict(key="value")),
+            InboxMatch(headers=dict(key="value")),
+            True,
+        ),
+        (
+            InboxEmailFactory(headers=dict(key="value")),
+            InboxMatch(headers=dict(key="val.+")),
+            True,
+        ),
+        (
+            InboxEmailFactory(headers=dict(key="value")),
+            InboxMatch(headers=dict(key="value", eggs="spam")),
+            False,
+        ),
+        (
+            InboxEmailFactory(headers=dict(key="value")),
+            InboxMatch(headers=dict(key="other")),
+            False,
+        ),
     ],
 )
 def test_match_inbox_email(email: InboxEmail, match: InboxMatch, expected: bool):

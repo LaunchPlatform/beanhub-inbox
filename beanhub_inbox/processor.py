@@ -16,6 +16,13 @@ def match_inbox_email(email: InboxEmail, match: InboxMatch) -> bool:
     if match.subject is not None:
         if re.match(match.subject, email.subject) is None:
             return False
+    if match.headers is not None:
+        for key, value in match.headers.items():
+            if key not in email.headers:
+                return False
+            email_header_value = email.headers[key]
+            if re.match(value, email_header_value) is None:
+                return False
 
     return True
 
