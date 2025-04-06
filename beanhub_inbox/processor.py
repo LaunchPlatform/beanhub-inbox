@@ -23,7 +23,12 @@ def match_inbox_email(email: InboxEmail, match: InboxMatch) -> bool:
             email_header_value = email.headers[key]
             if re.match(value, email_header_value) is None:
                 return False
-
+    if match.from_address is not None:
+        if not any(
+            re.match(match.from_address, address, flags=re.IGNORECASE)
+            for address in email.from_addresses
+        ):
+            return False
     return True
 
 

@@ -106,6 +106,41 @@ from beanhub_inbox.processor import match_inbox_email
             InboxMatch(headers=dict(key="other")),
             False,
         ),
+        (
+            InboxEmailFactory(
+                from_addresses=["fangpen@launchplatform.com", "hello@fangpenlin.com"]
+            ),
+            InboxMatch(from_address="fangpen@launchplatform.com"),
+            True,
+        ),
+        (
+            InboxEmailFactory(
+                from_addresses=["fangpen@launchplatform.com", "hello@fangpenlin.com"]
+            ),
+            InboxMatch(from_address="hello@fangpenlin.com"),
+            True,
+        ),
+        (
+            InboxEmailFactory(
+                from_addresses=["fangpen@launchplatform.com", "hello@fangpenlin.com"]
+            ),
+            InboxMatch(from_address="fangpen@.+"),
+            True,
+        ),
+        (
+            InboxEmailFactory(
+                from_addresses=["fangpen@launchplatform.com", "hello@fangpenlin.com"]
+            ),
+            InboxMatch(from_address=".*fangpen.*"),
+            True,
+        ),
+        (
+            InboxEmailFactory(
+                from_addresses=["fangpen@launchplatform.com", "hello@fangpenlin.com"]
+            ),
+            InboxMatch(from_address="other"),
+            False,
+        ),
     ],
 )
 def test_match_inbox_email(email: InboxEmail, match: InboxMatch, expected: bool):
