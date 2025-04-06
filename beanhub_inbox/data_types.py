@@ -12,7 +12,7 @@ class InboxMatch(BaseModel):
 
 
 class InboxAction(BaseModel):
-    pass
+    output_file: str
 
 
 class InboxConfig(BaseModel):
