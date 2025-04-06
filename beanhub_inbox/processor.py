@@ -1,5 +1,11 @@
 import re
 
+from jinja2.sandbox import SandboxedEnvironment
+
+from .data_types import ActionType
+from .data_types import ArchiveInboxAction
+from .data_types import IgnoreInboxAction
+from .data_types import InboxAction
 from .data_types import InboxConfig
 from .data_types import InboxEmail
 from .data_types import InboxMatch
@@ -32,5 +38,20 @@ def match_inbox_email(email: InboxEmail, match: InboxMatch) -> bool:
     return True
 
 
-def process_inbox_email(email: InboxEmail, inbox_configs: list[InboxConfig]):
-    pass
+def process_inbox_email(
+    template_env: SandboxedEnvironment,
+    email: InboxEmail,
+    inbox_configs: list[InboxConfig],
+) -> InboxAction | None:
+    for config in inbox_configs:
+        if match_inbox_email(email=email, match=config.match):
+            if isinstance(config.action, ArchiveInboxAction):
+                template_ctx = email.model_dump(mode="json")
+                output_file = template_env.from_string(
+                    config.action.output_file
+                ).render(**template_ctx)
+                return ArchiveInboxAction(
+                    type=ActionType.archive, output_file=output_file
+                )
+            elif isinstance(config.action, IgnoreInboxAction):
+                return config.action
