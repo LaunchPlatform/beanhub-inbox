@@ -6,7 +6,9 @@ class InboxBaseModel(BaseModel):
 
 
 class InboxMatch(BaseModel):
-    pass
+    tags: list[str] | None = None
+    headers: dict[str, str] | None = None
+    subject: str | None = None
 
 
 class InboxAction(BaseModel):
