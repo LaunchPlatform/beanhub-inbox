@@ -23,6 +23,69 @@ from beanhub_inbox.processor import match_inbox_email
             InboxMatch(subject="Mock .*"),
             False,
         ),
+        (
+            InboxEmailFactory(
+                tags=["a", "b", "c"],
+            ),
+            InboxMatch(tags=["a"]),
+            True,
+        ),
+        (
+            InboxEmailFactory(
+                tags=["a", "b", "c"],
+            ),
+            InboxMatch(tags=["b"]),
+            True,
+        ),
+        (
+            InboxEmailFactory(
+                tags=["a", "b", "c"],
+            ),
+            InboxMatch(tags=["c"]),
+            True,
+        ),
+        (
+            InboxEmailFactory(
+                tags=["a", "b", "c"],
+            ),
+            InboxMatch(tags=["a", "b"]),
+            True,
+        ),
+        (
+            InboxEmailFactory(
+                tags=["a", "b", "c"],
+            ),
+            InboxMatch(tags=["a", "c"]),
+            True,
+        ),
+        (
+            InboxEmailFactory(
+                tags=["a", "b", "c"],
+            ),
+            InboxMatch(tags=["b", "c"]),
+            True,
+        ),
+        (
+            InboxEmailFactory(
+                tags=["a", "b", "c"],
+            ),
+            InboxMatch(tags=["a", "b", "c"]),
+            True,
+        ),
+        (
+            InboxEmailFactory(
+                tags=["a", "b", "c"],
+            ),
+            InboxMatch(tags=["a", "b", "c", "d"]),
+            False,
+        ),
+        (
+            InboxEmailFactory(
+                tags=["a", "b", "c"],
+            ),
+            InboxMatch(tags=["a", "other"]),
+            False,
+        ),
     ],
 )
 def test_match_inbox_email(email: InboxEmail, match: InboxMatch, expected: bool):
