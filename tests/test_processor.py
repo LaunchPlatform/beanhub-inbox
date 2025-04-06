@@ -1,4 +1,7 @@
+import pathlib
+
 import pytest
+import yaml
 from jinja2.sandbox import SandboxedEnvironment
 
 from .factories import InboxEmailFactory
@@ -7,6 +10,7 @@ from beanhub_inbox.data_types import ArchiveInboxAction
 from beanhub_inbox.data_types import IgnoreInboxAction
 from beanhub_inbox.data_types import InboxAction
 from beanhub_inbox.data_types import InboxConfig
+from beanhub_inbox.data_types import InboxDoc
 from beanhub_inbox.data_types import InboxEmail
 from beanhub_inbox.data_types import InboxMatch
 from beanhub_inbox.processor import match_inbox_email
@@ -240,3 +244,17 @@ def test_process_inbox_email(
         )
         == expected
     )
+
+
+@pytest.mark.parametrize(
+    "filename",
+    [
+        "sample.yaml",
+    ],
+)
+def test_parse_yaml(fixtures_folder: pathlib.Path, filename: str):
+    yaml_file = fixtures_folder / filename
+    with yaml_file.open("rb") as fo:
+        payload = yaml.safe_load(fo)
+    doc = InboxDoc.model_validate(payload)
+    assert doc

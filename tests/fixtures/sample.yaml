@@ -1,0 +1,10 @@
+inbox:
+  - match:
+      subject: Foo .+
+    action:
+      output_file: "inbox-data/default/{{ id }}.eml"
+  - match:
+      tags:
+        - spam
+    action:
+      type: ignore
