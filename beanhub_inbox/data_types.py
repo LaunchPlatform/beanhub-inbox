@@ -26,6 +26,8 @@ class InboxDoc(InboxBaseModel):
 
 
 class InboxEmail(InboxBaseModel):
+    id: str
+    message_id: str
     headers: dict[str, str]
     subject: str
     from_address: list[str]
