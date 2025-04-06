@@ -5,20 +5,21 @@ class InboxBaseModel(BaseModel):
     pass
 
 
-class InboxMatch(BaseModel):
+class InboxMatch(InboxBaseModel):
     tags: list[str] | None = None
     headers: dict[str, str] | None = None
     subject: str | None = None
+    from_address: str | None = None
 
 
-class InboxAction(BaseModel):
+class InboxAction(InboxBaseModel):
     output_file: str
 
 
-class InboxConfig(BaseModel):
-    match: InboxMatch
+class InboxConfig(InboxBaseModel):
     action: InboxAction
+    match: InboxMatch | None = None
 
 
-class InboxDoc(BaseModel):
+class InboxDoc(InboxBaseModel):
     inbox: list[InboxConfig] | None = None
