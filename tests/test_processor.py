@@ -2,7 +2,9 @@ import pytest
 from jinja2.sandbox import SandboxedEnvironment
 
 from .factories import InboxEmailFactory
+from beanhub_inbox.data_types import ActionType
 from beanhub_inbox.data_types import ArchiveInboxAction
+from beanhub_inbox.data_types import IgnoreInboxAction
 from beanhub_inbox.data_types import InboxAction
 from beanhub_inbox.data_types import InboxConfig
 from beanhub_inbox.data_types import InboxEmail
@@ -160,20 +162,69 @@ def test_match_inbox_email(email: InboxEmail, match: InboxMatch, expected: bool)
 @pytest.mark.parametrize(
     "email, inbox_configs, expected",
     [
-        (
+        pytest.param(
             InboxEmailFactory(
                 id="mock-id",
                 subject="foo",
             ),
             [
                 InboxConfig(
+                    match=InboxMatch(subject="eggs"),
+                    action=ArchiveInboxAction(
+                        output_file="path/to/other/{{ id }}.eml",
+                    ),
+                ),
+                InboxConfig(
                     match=InboxMatch(subject="foo"),
                     action=ArchiveInboxAction(
-                        output_file="path/to/{{ id }}",
+                        output_file="path/to/{{ id }}.eml",
                     ),
-                )
+                ),
             ],
-            ArchiveInboxAction(output_file="path/to/mock-id"),
+            ArchiveInboxAction(output_file="path/to/mock-id.eml"),
+            id="order",
+        ),
+        pytest.param(
+            InboxEmailFactory(
+                id="mock-id",
+                message_id="mock-msg-id",
+                subject="foo",
+                headers=dict(key="value"),
+            ),
+            [
+                InboxConfig(
+                    match=InboxMatch(subject="foo"),
+                    action=ArchiveInboxAction(
+                        output_file="{{ message_id }}/{{ subject }}/{{ headers['key'] }}.eml",
+                    ),
+                ),
+            ],
+            ArchiveInboxAction(output_file="mock-msg-id/foo/value.eml"),
+            id="render",
+        ),
+        pytest.param(
+            InboxEmailFactory(
+                subject="spam",
+            ),
+            [
+                InboxConfig(
+                    match=InboxMatch(subject="eggs"),
+                    action=ArchiveInboxAction(
+                        output_file="path/to/other/{{ id }}.eml",
+                    ),
+                ),
+                InboxConfig(
+                    match=InboxMatch(subject="spam"),
+                    action=IgnoreInboxAction(type=ActionType.ignore),
+                ),
+                InboxConfig(
+                    action=ArchiveInboxAction(
+                        output_file="path/to/{{ id }}.eml",
+                    ),
+                ),
+            ],
+            IgnoreInboxAction(type=ActionType.ignore),
+            id="ignore",
         ),
     ],
 )
