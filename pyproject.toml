@@ -12,5 +12,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "factory-boy>=3.3.3",
+    "pytest-factoryboy>=2.7.0",
     "pytest>=8.3.5",
 ]

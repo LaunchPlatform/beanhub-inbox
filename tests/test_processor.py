@@ -1,5 +1,6 @@
 import pytest
 
+from .factories import InboxEmailFactory
 from beanhub_inbox.data_types import InboxEmail
 from beanhub_inbox.data_types import InboxMatch
 from beanhub_inbox.processor import match_inbox_email
@@ -9,17 +10,19 @@ from beanhub_inbox.processor import match_inbox_email
     "email, match, expected",
     [
         (
-            InboxEmail(
-                id="MOCK_ID",
-                message_id="MOCK_MSG_ID",
-                headers={"Mock-Header": "Mock-Value"},
+            InboxEmailFactory(
                 subject="Mock subject",
-                from_address=["hello@fangpenlin.com"],
-                recipients=["my-repo@inbox.beanhub.io"],
             ),
             InboxMatch(subject="Mock .*"),
             True,
-        )
+        ),
+        (
+            InboxEmailFactory(
+                subject="Other subject",
+            ),
+            InboxMatch(subject="Mock .*"),
+            False,
+        ),
     ],
 )
 def test_match_inbox_email(email: InboxEmail, match: InboxMatch, expected: bool):

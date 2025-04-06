@@ -30,6 +30,6 @@ class InboxEmail(InboxBaseModel):
     message_id: str
     headers: dict[str, str]
     subject: str
-    from_address: list[str]
+    from_addresses: list[str]
     recipients: list[str]
     tags: list[str] | None = None

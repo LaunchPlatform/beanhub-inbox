@@ -14,7 +14,7 @@ def match_inbox_email(email: InboxEmail, match: InboxMatch) -> bool:
         if matching_tags.intersection(email_tags) != matching_tags:
             return False
     if match.subject is not None:
-        if re.match(match.subject, match.subject) is None:
+        if re.match(match.subject, email.subject) is None:
             return False
 
     return True
