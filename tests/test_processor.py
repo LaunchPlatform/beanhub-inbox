@@ -191,6 +191,27 @@ def test_match_inbox_email(email: InboxEmail, match: InboxMatch, expected: bool)
         pytest.param(
             InboxEmailFactory(
                 id="mock-id",
+                subject="foo",
+            ),
+            [
+                InboxConfig(
+                    match=InboxMatch(subject="eggs"),
+                    action=ArchiveInboxAction(
+                        output_file="path/to/other/{{ id }}.eml",
+                    ),
+                ),
+                InboxConfig(
+                    action=ArchiveInboxAction(
+                        output_file="path/to/{{ id }}.eml",
+                    ),
+                ),
+            ],
+            ArchiveInboxAction(output_file="path/to/mock-id.eml"),
+            id="match-none",
+        ),
+        pytest.param(
+            InboxEmailFactory(
+                id="mock-id",
                 message_id="mock-msg-id",
                 subject="foo",
                 headers=dict(key="value"),

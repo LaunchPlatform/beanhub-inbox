@@ -44,7 +44,7 @@ def process_inbox_email(
     inbox_configs: list[InboxConfig],
 ) -> InboxAction | None:
     for config in inbox_configs:
-        if match_inbox_email(email=email, match=config.match):
+        if config.match is None or match_inbox_email(email=email, match=config.match):
             if isinstance(config.action, ArchiveInboxAction):
                 template_ctx = email.model_dump(mode="json")
                 output_file = template_env.from_string(
