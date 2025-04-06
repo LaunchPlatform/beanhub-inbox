@@ -9,5 +9,14 @@ class InboxMatch(BaseModel):
     pass
 
 
+class InboxAction(BaseModel):
+    pass
+
+
+class InboxConfig(BaseModel):
+    match: InboxMatch
+    action: InboxAction
+
+
 class InboxDoc(BaseModel):
-    inbox: list[InboxMatch] | None = None
+    inbox: list[InboxConfig] | None = None
