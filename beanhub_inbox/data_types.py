@@ -82,11 +82,14 @@ class ExtractConfig(InboxBaseModel):
     output_csv: str
     prompt: str | None = None
     output_columns: list[OutputColumn] | None = None
-    output_folders: dict[str, str]
+    output_folders: dict[str, str] | None = None
 
 
 class ExtractImportAction(InboxBaseModel):
-    type: typing.Literal[ImportActionType.extract]
+    type: typing.Literal[ImportActionType.extract] = pydantic.Field(
+        ImportActionType.extract
+    )
+    extract: ExtractConfig
 
 
 class IgnoreImportAction(InboxBaseModel):
