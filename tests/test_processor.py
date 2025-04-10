@@ -13,8 +13,13 @@ from beanhub_inbox.data_types import InboxConfig
 from beanhub_inbox.data_types import InboxDoc
 from beanhub_inbox.data_types import InboxEmail
 from beanhub_inbox.data_types import InboxMatch
+from beanhub_inbox.data_types import SimpleFileMatch
+from beanhub_inbox.data_types import StrExactMatch
+from beanhub_inbox.data_types import StrRegexMatch
+from beanhub_inbox.processor import match_file
 from beanhub_inbox.processor import match_inbox_email
 from beanhub_inbox.processor import process_inbox_email
+from beanhub_inbox.processor import render_input_config_match
 
 
 @pytest.fixture
@@ -265,6 +270,61 @@ def test_process_inbox_email(
         )
         == expected
     )
+
+
+@pytest.mark.parametrize(
+    "pattern, path, expected",
+    [
+        ("/path/to/*/foo*.csv", "/path/to/bar/foo.csv", True),
+        ("/path/to/*/foo*.csv", "/path/to/bar/foo-1234.csv", True),
+        ("/path/to/*/foo*.csv", "/path/to/eggs/foo-1234.csv", True),
+        ("/path/to/*/foo*.csv", "/path/to/eggs/foo.csv", True),
+        ("/path/to/*/foo*.csv", "/path/from/eggs/foo.csv", False),
+        ("/path/to/*/foo*.csv", "foo.csv", False),
+        (StrRegexMatch(regex=r"^/path/to/([0-9]+)"), "/path/to/0", True),
+        (StrRegexMatch(regex=r"^/path/to/([0-9]+)"), "/path/to/0123", True),
+        (StrRegexMatch(regex=r"^/path/to/([0-9]+)"), "/path/to/a0123", False),
+        (StrExactMatch(equals="foo.csv"), "foo.csv", True),
+        (StrExactMatch(equals="foo.csv"), "xfoo.csv", False),
+    ],
+)
+def test_match_file(pattern: SimpleFileMatch, path: str, expected: bool):
+    assert match_file(pattern, pathlib.PurePosixPath(path)) == expected
+
+
+@pytest.mark.parametrize(
+    "match, values, expected",
+    [
+        (
+            "inbox-data/connect/{{ foo }}",
+            dict(foo="bar.csv"),
+            "inbox-data/connect/bar.csv",
+        ),
+        (
+            "inbox-data/connect/eggs.csv",
+            dict(foo="bar.csv"),
+            "inbox-data/connect/eggs.csv",
+        ),
+        (
+            StrExactMatch(equals="inbox-data/connect/{{ foo }}"),
+            dict(foo="bar.csv"),
+            StrExactMatch(equals="inbox-data/connect/bar.csv"),
+        ),
+        (
+            StrRegexMatch(regex="inbox-data/connect/{{ foo }}"),
+            dict(foo="bar.csv"),
+            StrRegexMatch(regex="inbox-data/connect/bar.csv"),
+        ),
+    ],
+)
+def test_render_input_config_match(
+    template_env: SandboxedEnvironment,
+    match: SimpleFileMatch,
+    values: dict,
+    expected: SimpleFileMatch,
+):
+    render_str = lambda value: template_env.from_string(value).render(values)
+    assert render_input_config_match(render_str=render_str, match=match) == expected
 
 
 @pytest.mark.parametrize(

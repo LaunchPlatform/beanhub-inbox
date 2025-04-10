@@ -1,4 +1,10 @@
+import dataclasses
+import logging
+import os
+import pathlib
 import re
+import typing
+import uuid
 
 from jinja2.sandbox import SandboxedEnvironment
 
@@ -7,8 +13,19 @@ from .data_types import IgnoreInboxAction
 from .data_types import InboxAction
 from .data_types import InboxActionType
 from .data_types import InboxConfig
+from .data_types import InboxDoc
 from .data_types import InboxEmail
 from .data_types import InboxMatch
+from .data_types import InputConfig
+from .data_types import SimpleFileMatch
+from .data_types import StrExactMatch
+from .data_types import StrRegexMatch
+from .templates import make_environment
+
+
+@dataclasses.dataclass(frozen=True)
+class RenderedInputConfig:
+    input_config: InputConfig
 
 
 def match_inbox_email(email: InboxEmail, match: InboxMatch) -> bool:
@@ -55,3 +72,91 @@ def process_inbox_email(
                 )
             elif isinstance(config.action, IgnoreInboxAction):
                 return config.action
+
+
+def walk_dir_files(
+    target_dir: pathlib.Path,
+) -> typing.Generator[pathlib.Path, None, None]:
+    for root, dirs, files in os.walk(target_dir):
+        for file in files:
+            yield pathlib.Path(root) / file
+
+
+def render_input_config_match(
+    render_str: typing.Callable, match: SimpleFileMatch
+) -> SimpleFileMatch:
+    if isinstance(match, str):
+        return render_str(match)
+    elif isinstance(match, StrExactMatch):
+        return StrExactMatch(equals=render_str(match.equals))
+    elif isinstance(match, StrRegexMatch):
+        return StrRegexMatch(regex=render_str(match.regex))
+    else:
+        raise ValueError(f"Unexpected match type {type(match)}")
+
+
+def expand_input_loops(
+    template_env: SandboxedEnvironment,
+    inputs: list[InputConfig],
+    omit_token: str,
+) -> typing.Generator[RenderedInputConfig, None, None]:
+    for input_config in inputs:
+        evaluated_filter = None
+
+        if input_config.loop is not None:
+            if not input_config.loop:
+                raise ValueError("Loop content cannot be empty")
+            loop = input_config.loop
+        else:
+            loop = [None]
+
+        for values in loop:
+            render_str = lambda value: template_env.from_string(value).render(
+                **(dict(omit=omit_token) | (values if values is not None else {}))
+            )
+            rendered_match = render_input_config_match(
+                render_str=render_str,
+                match=input_config.match,
+            )
+            yield RenderedInputConfig(
+                input_config=InputConfig(
+                    match=rendered_match,
+                ),
+            )
+
+
+def match_file(
+    pattern: SimpleFileMatch, filepath: pathlib.Path | pathlib.PurePath
+) -> bool:
+    if isinstance(pattern, str):
+        return filepath.match(pattern)
+    if isinstance(pattern, StrRegexMatch):
+        return re.match(pattern.regex, str(filepath)) is not None
+    elif isinstance(pattern, StrExactMatch):
+        return str(filepath) == pattern.equals
+    else:
+        raise ValueError(f"Unexpected file match type {type(pattern)}")
+
+
+def process_imports(
+    inbox_doc: InboxDoc,
+    input_dir: pathlib.Path,
+):
+    logger = logging.getLogger(__name__)
+    template_env = make_environment()
+    omit_token = uuid.uuid4().hex
+
+    expanded_input_configs = list(
+        expand_input_loops(
+            template_env=template_env, inputs=inbox_doc.inputs, omit_token=omit_token
+        ),
+    )
+
+    # sort filepaths for deterministic behavior across platforms
+    filepaths = sorted(walk_dir_files(input_dir))
+    for filepath in filepaths:
+        for rendered_input_config in expanded_input_configs:
+            input_config = rendered_input_config.input_config
+            if not match_file(input_config.match, filepath):
+                continue
+            rel_filepath = filepath.relative_to(input_dir)
