@@ -5,6 +5,7 @@ description = "Email processing engine for archiving and extracting financial da
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
+    "fast-mail-parser>=0.2.5",
     "jinja2>=3.1.6",
     "pydantic>=2.11.2",
     "pyyaml>=6.0.2",
