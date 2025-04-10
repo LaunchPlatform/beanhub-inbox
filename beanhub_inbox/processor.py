@@ -2,10 +2,10 @@ import re
 
 from jinja2.sandbox import SandboxedEnvironment
 
-from .data_types import ActionType
 from .data_types import ArchiveInboxAction
 from .data_types import IgnoreInboxAction
 from .data_types import InboxAction
+from .data_types import InboxActionType
 from .data_types import InboxConfig
 from .data_types import InboxEmail
 from .data_types import InboxMatch
@@ -51,7 +51,7 @@ def process_inbox_email(
                     config.action.output_file
                 ).render(**template_ctx)
                 return ArchiveInboxAction(
-                    type=ActionType.archive, output_file=output_file
+                    type=InboxActionType.archive, output_file=output_file
                 )
             elif isinstance(config.action, IgnoreInboxAction):
                 return config.action

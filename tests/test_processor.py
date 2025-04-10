@@ -5,10 +5,10 @@ import yaml
 from jinja2.sandbox import SandboxedEnvironment
 
 from .factories import InboxEmailFactory
-from beanhub_inbox.data_types import ActionType
 from beanhub_inbox.data_types import ArchiveInboxAction
 from beanhub_inbox.data_types import IgnoreInboxAction
 from beanhub_inbox.data_types import InboxAction
+from beanhub_inbox.data_types import InboxActionType
 from beanhub_inbox.data_types import InboxConfig
 from beanhub_inbox.data_types import InboxDoc
 from beanhub_inbox.data_types import InboxEmail
@@ -240,7 +240,7 @@ def test_match_inbox_email(email: InboxEmail, match: InboxMatch, expected: bool)
                 ),
                 InboxConfig(
                     match=InboxMatch(subject="spam"),
-                    action=IgnoreInboxAction(type=ActionType.ignore),
+                    action=IgnoreInboxAction(type=InboxActionType.ignore),
                 ),
                 InboxConfig(
                     action=ArchiveInboxAction(
@@ -248,7 +248,7 @@ def test_match_inbox_email(email: InboxEmail, match: InboxMatch, expected: bool)
                     ),
                 ),
             ],
-            IgnoreInboxAction(type=ActionType.ignore),
+            IgnoreInboxAction(type=InboxActionType.ignore),
             id="ignore",
         ),
     ],
