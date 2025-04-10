@@ -8,3 +8,32 @@ inbox:
         - spam
     action:
       type: ignore
+
+inputs:
+  - match: "inbox-data/{{ match_path }}"
+    loop:
+    - match_path: "default/*.eml"
+
+imports:
+  - match:
+      subject: xxx (.+)
+      llm: "is it a spam"
+    actions:
+    - prompt: |
+        Extract receipt or invoice data from the email and its attachments.
+        Archive invoice attachments in the email to the "invoices" folder.
+        Archive receipt attachments in the email to the "receipts" folder.
+      columns:
+        - name: txn_id
+          type: str
+          description: the id of receipt or invoice
+        - name: valid
+          type: bool
+          description: is this a valid receipt, invoice or something else
+        - name: amount
+          type: number
+          description: the amount of transaction
+      folders:
+        invoices: invoices/
+        receipt: receipts/
+      output_csv: "inbox-data/email/{{ date.year }}.csv"
