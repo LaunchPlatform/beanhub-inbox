@@ -11,6 +11,12 @@ class InboxActionType(str, enum.Enum):
     ignore = "ignore"
 
 
+@enum.unique
+class ImportActionType(str, enum.Enum):
+    extract = "extract"
+    ignore = "ignore"
+
+
 class InboxBaseModel(BaseModel):
     pass
 
@@ -57,11 +63,44 @@ class InputConfig(InboxBaseModel):
     loop: list[dict] | None = None
 
 
+@enum.unique
+class OutputColumnType(enum.Enum):
+    str = "str"
+    int = "int"
+    decimal = "decimal"
+    bool = "bool"
+
+
+class OutputColumn(InboxBaseModel):
+    name: str
+    type: OutputColumnType
+    description: str
+    regex: str | None = None
+
+
+class ExtractConfig(InboxBaseModel):
+    output_csv: str
+    prompt: str | None = None
+    output_columns: list[OutputColumn] | None = None
+    output_folders: dict[str, str]
+
+
+class ExtractImportAction(InboxBaseModel):
+    type: typing.Literal[ImportActionType.extract]
+
+
+class IgnoreImportAction(InboxBaseModel):
+    type: typing.Literal[ImportActionType.ignore]
+
+
+ImportAction = ExtractImportAction | IgnoreImportAction
+
+
 class ImportConfig(InboxBaseModel):
     # Name of import rule, for users to read only
     name: str | None = None
     # match: TxnMatchRule | list[TxnMatchVars]
-    # actions: list[Action]
+    actions: list[ImportAction]
 
 
 class InboxDoc(InboxBaseModel):
