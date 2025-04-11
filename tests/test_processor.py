@@ -18,6 +18,7 @@ from beanhub_inbox.data_types import StrExactMatch
 from beanhub_inbox.data_types import StrRegexMatch
 from beanhub_inbox.processor import match_file
 from beanhub_inbox.processor import match_inbox_email
+from beanhub_inbox.processor import process_imports
 from beanhub_inbox.processor import process_inbox_email
 from beanhub_inbox.processor import render_input_config_match
 
@@ -339,3 +340,21 @@ def test_parse_yaml(fixtures_folder: pathlib.Path, filename: str):
         payload = yaml.safe_load(fo)
     doc = InboxDoc.model_validate(payload)
     assert doc
+
+
+@pytest.mark.parametrize(
+    "folder, expected",
+    [
+        ("basic", []),
+    ],
+)
+def test_process_imports(
+    fixtures_folder: pathlib.Path,
+    folder: str,
+    expected: list,
+):
+    folder_path = fixtures_folder / "processor" / folder
+    with open(folder_path / "inbox.yaml", "rt") as fo:
+        payload = yaml.safe_load(fo)
+    doc = InboxDoc.model_validate(payload)
+    assert list(process_imports(inbox_doc=doc, input_dir=folder_path)) == expected

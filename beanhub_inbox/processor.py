@@ -101,8 +101,6 @@ def expand_input_loops(
     omit_token: str,
 ) -> typing.Generator[RenderedInputConfig, None, None]:
     for input_config in inputs:
-        evaluated_filter = None
-
         if input_config.loop is not None:
             if not input_config.loop:
                 raise ValueError("Loop content cannot be empty")
@@ -160,3 +158,5 @@ def process_imports(
             if not match_file(input_config.match, filepath):
                 continue
             rel_filepath = filepath.relative_to(input_dir)
+            # XXX:
+            yield None
