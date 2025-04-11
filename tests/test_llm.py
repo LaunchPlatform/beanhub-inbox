@@ -119,7 +119,7 @@ from beanhub_inbox.llm import LLMResponseBaseModel
         pytest.param(
             OutputColumn(
                 name="timestamp",
-                type=OutputColumnType.date,
+                type=OutputColumnType.datetime,
                 description="timestamp of transaction",
             ),
             (
