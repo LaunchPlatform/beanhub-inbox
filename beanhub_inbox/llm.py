@@ -1,4 +1,4 @@
-import decimal
+import datetime
 import enum
 import typing
 
@@ -6,6 +6,9 @@ import pydantic
 
 from .data_types import OutputColumn
 from .data_types import OutputColumnType
+
+
+DECIMAL_REGEX = r"^-?(0|[1-9]\d*)(\.\d+)?$"
 
 
 class LLMResponseBaseModel(pydantic.BaseModel):
@@ -28,7 +31,13 @@ def build_column_field(output_column: OutputColumn) -> (str, typing.Type):
     elif output_column.type == OutputColumnType.int:
         annotated_type = typing.Annotated[int, pydantic.Field(**kwargs)]
     elif output_column.type == OutputColumnType.decimal:
-        annotated_type = typing.Annotated[decimal.Decimal, pydantic.Field(**kwargs)]
+        annotated_type = typing.Annotated[
+            str, pydantic.Field(pattern=DECIMAL_REGEX, **kwargs)
+        ]
+    elif output_column.type == OutputColumnType.date:
+        annotated_type = typing.Annotated[datetime.date, pydantic.Field(**kwargs)]
+    elif output_column.type == OutputColumnType.datetime:
+        annotated_type = typing.Annotated[datetime.datetime, pydantic.Field(**kwargs)]
     elif output_column.type == OutputColumnType.bool:
         annotated_type = typing.Annotated[bool, pydantic.Field(**kwargs)]
     else:

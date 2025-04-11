@@ -69,6 +69,8 @@ class OutputColumnType(enum.Enum):
     int = "int"
     decimal = "decimal"
     bool = "bool"
+    date = "date"
+    datetime = "datetime"
 
 
 class OutputColumn(InboxBaseModel):

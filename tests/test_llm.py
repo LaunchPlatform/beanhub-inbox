@@ -1,5 +1,6 @@
-import decimal
+import datetime
 import enum
+import textwrap
 import typing
 
 import pydantic
@@ -9,7 +10,9 @@ from beanhub_inbox.data_types import OutputColumn
 from beanhub_inbox.data_types import OutputColumnType
 from beanhub_inbox.llm import build_archive_attachment_model
 from beanhub_inbox.llm import build_column_field
+from beanhub_inbox.llm import build_response_model
 from beanhub_inbox.llm import build_row_model
+from beanhub_inbox.llm import DECIMAL_REGEX
 from beanhub_inbox.llm import LLMResponseBaseModel
 
 
@@ -60,8 +63,10 @@ from beanhub_inbox.llm import LLMResponseBaseModel
             (
                 "amount",
                 typing.Annotated[
-                    decimal.Decimal,
-                    pydantic.Field(description="transaction amount"),
+                    str,
+                    pydantic.Field(
+                        description="transaction amount", pattern=DECIMAL_REGEX
+                    ),
                 ],
             ),
             id="decimal",
@@ -95,6 +100,36 @@ from beanhub_inbox.llm import LLMResponseBaseModel
                 ],
             ),
             id="bool",
+        ),
+        pytest.param(
+            OutputColumn(
+                name="date",
+                type=OutputColumnType.date,
+                description="date of transaction",
+            ),
+            (
+                "date",
+                typing.Annotated[
+                    datetime.date,
+                    pydantic.Field(description="date of transaction"),
+                ],
+            ),
+            id="date",
+        ),
+        pytest.param(
+            OutputColumn(
+                name="timestamp",
+                type=OutputColumnType.date,
+                description="timestamp of transaction",
+            ),
+            (
+                "timestamp",
+                typing.Annotated[
+                    datetime.datetime,
+                    pydantic.Field(description="timestamp of transaction"),
+                ],
+            ),
+            id="datetime",
         ),
     ],
 )
