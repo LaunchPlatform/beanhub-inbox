@@ -11,7 +11,7 @@ class LLMResponseBaseModel(pydantic.BaseModel):
     pass
 
 
-def build_field(output_column: OutputColumn) -> (str, typing.Type):
+def build_column_field(output_column: OutputColumn) -> (str, typing.Type):
     kwargs = dict(description=output_column.description)
     annotated_type: typing.Type
     if output_column.type == OutputColumnType.str:
@@ -29,10 +29,10 @@ def build_field(output_column: OutputColumn) -> (str, typing.Type):
     return output_column.name, annotated_type
 
 
-def build_response_model(
+def build_row_model(
     output_columns: list[OutputColumn],
 ) -> typing.Type[pydantic.BaseModel]:
-    fields = map(build_field, output_columns)
+    fields = map(build_column_field, output_columns)
     return pydantic.create_model(
-        "LLMResponse", **dict(fields), __base__=LLMResponseBaseModel
+        "CsvRow", **dict(fields), __base__=LLMResponseBaseModel
     )

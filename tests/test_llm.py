@@ -6,8 +6,8 @@ import pytest
 
 from beanhub_inbox.data_types import OutputColumn
 from beanhub_inbox.data_types import OutputColumnType
-from beanhub_inbox.llm import build_field
-from beanhub_inbox.llm import build_response_model
+from beanhub_inbox.llm import build_column_field
+from beanhub_inbox.llm import build_row_model
 from beanhub_inbox.llm import LLMResponseBaseModel
 
 
@@ -96,8 +96,12 @@ from beanhub_inbox.llm import LLMResponseBaseModel
         ),
     ],
 )
-def test_build_field(output_column: OutputColumn, expected: tuple[str, typing.Type]):
-    model = pydantic.create_model("TestModel", **dict([build_field(output_column)]))
+def test_build_column_field(
+    output_column: OutputColumn, expected: tuple[str, typing.Type]
+):
+    model = pydantic.create_model(
+        "TestModel", **dict([build_column_field(output_column)])
+    )
     expected_model = pydantic.create_model("TestModel", **dict([expected]))
     assert model.model_json_schema() == expected_model.model_json_schema()
 
@@ -119,7 +123,7 @@ def test_build_field(output_column: OutputColumn, expected: tuple[str, typing.Ty
                 ),
             ],
             pydantic.create_model(
-                "LLMResponse",
+                "CsvRow",
                 desc=typing.Annotated[
                     str,
                     pydantic.Field(
@@ -133,8 +137,8 @@ def test_build_field(output_column: OutputColumn, expected: tuple[str, typing.Ty
         ),
     ],
 )
-def test_build_response_model(
+def test_build_row_model(
     output_columns: list[OutputColumn], expected: typing.Type[LLMResponseBaseModel]
 ):
-    model = build_response_model(output_columns=output_columns)
+    model = build_row_model(output_columns=output_columns)
     assert model.model_json_schema() == expected.model_json_schema()
