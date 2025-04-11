@@ -75,7 +75,7 @@ class OutputColumn(InboxBaseModel):
     name: str
     type: OutputColumnType
     description: str
-    regex: str | None = None
+    pattern: str | None = None
 
 
 class ExtractConfig(InboxBaseModel):
