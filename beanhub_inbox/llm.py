@@ -7,6 +7,10 @@ from .data_types import OutputColumn
 from .data_types import OutputColumnType
 
 
+class LLMResponseBaseModel(pydantic.BaseModel):
+    pass
+
+
 def build_field(output_column: OutputColumn) -> (str, typing.Type):
     kwargs = dict(description=output_column.description)
     annotated_type: typing.Type
@@ -29,4 +33,6 @@ def build_response_model(
     output_columns: list[OutputColumn],
 ) -> typing.Type[pydantic.BaseModel]:
     fields = map(build_field, output_columns)
-    return pydantic.create_model("LLMResponse", **dict(fields))
+    return pydantic.create_model(
+        "LLMResponse", **dict(fields), __base__=LLMResponseBaseModel
+    )

@@ -7,6 +7,8 @@ import pytest
 from beanhub_inbox.data_types import OutputColumn
 from beanhub_inbox.data_types import OutputColumnType
 from beanhub_inbox.llm import build_field
+from beanhub_inbox.llm import build_response_model
+from beanhub_inbox.llm import LLMResponseBaseModel
 
 
 @pytest.mark.parametrize(
@@ -98,3 +100,41 @@ def test_build_field(output_column: OutputColumn, expected: tuple[str, typing.Ty
     model = pydantic.create_model("TestModel", **dict([build_field(output_column)]))
     expected_model = pydantic.create_model("TestModel", **dict([expected]))
     assert model.model_json_schema() == expected_model.model_json_schema()
+
+
+@pytest.mark.parametrize(
+    "output_columns, expected",
+    [
+        (
+            [
+                OutputColumn(
+                    name="desc",
+                    type=OutputColumnType.str,
+                    description="summary of the transaction from the invoice or receipt",
+                ),
+                OutputColumn(
+                    name="year",
+                    type=OutputColumnType.int,
+                    description="transaction year",
+                ),
+            ],
+            pydantic.create_model(
+                "LLMResponse",
+                desc=typing.Annotated[
+                    str,
+                    pydantic.Field(
+                        description="summary of the transaction from the invoice or receipt"
+                    ),
+                ],
+                year=typing.Annotated[
+                    int, pydantic.Field(description="transaction year")
+                ],
+            ),
+        ),
+    ],
+)
+def test_build_response_model(
+    output_columns: list[OutputColumn], expected: typing.Type[LLMResponseBaseModel]
+):
+    model = build_response_model(output_columns=output_columns)
+    assert model.model_json_schema() == expected.model_json_schema()
