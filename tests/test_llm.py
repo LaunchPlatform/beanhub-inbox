@@ -1,4 +1,5 @@
 import decimal
+import enum
 import typing
 
 import pydantic
@@ -6,6 +7,7 @@ import pytest
 
 from beanhub_inbox.data_types import OutputColumn
 from beanhub_inbox.data_types import OutputColumnType
+from beanhub_inbox.llm import build_archive_attachment_model
 from beanhub_inbox.llm import build_column_field
 from beanhub_inbox.llm import build_row_model
 from beanhub_inbox.llm import LLMResponseBaseModel
@@ -141,4 +143,48 @@ def test_build_row_model(
     output_columns: list[OutputColumn], expected: typing.Type[LLMResponseBaseModel]
 ):
     model = build_row_model(output_columns=output_columns)
+    assert model.model_json_schema() == expected.model_json_schema()
+
+
+@pytest.mark.parametrize(
+    "output_folders, attachment_count, expected",
+    [
+        (
+            ["a", "b", "c"],
+            3,
+            pydantic.create_model(
+                "ArchiveAttachmentAction",
+                attachment_index=typing.Annotated[
+                    int,
+                    pydantic.Field(
+                        ge=0, lt=3, description="The index of email attachment file"
+                    ),
+                ],
+                outout_folder=typing.Annotated[
+                    enum.Enum(
+                        "OutputFolder",
+                        {k: k for k in ["a", "b", "c"]},
+                    ),
+                    pydantic.Field(
+                        description="which folder to archive the email attachment file to"
+                    ),
+                ],
+                filename=typing.Annotated[
+                    str,
+                    pydantic.Field(
+                        description="The output filename of email attachment file to write to the output folder"
+                    ),
+                ],
+            ),
+        ),
+    ],
+)
+def test_build_archive_attachment_model(
+    output_folders: list[str],
+    attachment_count: int,
+    expected: typing.Type[LLMResponseBaseModel],
+):
+    model = build_archive_attachment_model(
+        output_folders=output_folders, attachment_count=attachment_count
+    )
     assert model.model_json_schema() == expected.model_json_schema()
