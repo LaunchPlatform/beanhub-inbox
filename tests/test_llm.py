@@ -1,3 +1,4 @@
+import decimal
 import typing
 
 import pydantic
@@ -11,7 +12,7 @@ from beanhub_inbox.llm import build_field
 @pytest.mark.parametrize(
     "output_column, expected",
     [
-        (
+        pytest.param(
             OutputColumn(
                 name="desc",
                 type=OutputColumnType.str,
@@ -26,7 +27,71 @@ from beanhub_inbox.llm import build_field
                     ),
                 ],
             ),
-        )
+            id="str",
+        ),
+        pytest.param(
+            OutputColumn(
+                name="txn_id",
+                type=OutputColumnType.str,
+                description="Id of transaction",
+                pattern="[0-9]{10}",
+            ),
+            (
+                "txn_id",
+                typing.Annotated[
+                    str,
+                    pydantic.Field(
+                        description="Id of transaction", pattern="[0-9]{10}"
+                    ),
+                ],
+            ),
+            id="str-with-regex",
+        ),
+        pytest.param(
+            OutputColumn(
+                name="amount",
+                type=OutputColumnType.decimal,
+                description="transaction amount",
+            ),
+            (
+                "amount",
+                typing.Annotated[
+                    decimal.Decimal,
+                    pydantic.Field(description="transaction amount"),
+                ],
+            ),
+            id="decimal",
+        ),
+        pytest.param(
+            OutputColumn(
+                name="year",
+                type=OutputColumnType.int,
+                description="transaction year",
+            ),
+            (
+                "year",
+                typing.Annotated[
+                    int,
+                    pydantic.Field(description="transaction year"),
+                ],
+            ),
+            id="int",
+        ),
+        pytest.param(
+            OutputColumn(
+                name="valid",
+                type=OutputColumnType.bool,
+                description="is this a invoice or something else",
+            ),
+            (
+                "valid",
+                typing.Annotated[
+                    bool,
+                    pydantic.Field(description="is this a invoice or something else"),
+                ],
+            ),
+            id="bool",
+        ),
     ],
 )
 def test_build_field(output_column: OutputColumn, expected: tuple[str, typing.Type]):
