@@ -64,13 +64,13 @@ def build_archive_attachment_model(output_folders: list[str], attachment_count: 
         {output_folder: output_folder for output_folder in output_folders},
     )
     return pydantic.create_model(
-        "ArchiveAttachmentAction",
+        "ArchiveAttachment",
         attachment_index=typing.Annotated[
             int,
             pydantic.Field(
-                ge=0,
-                lt=attachment_count,
-                description="The index of email attachment file",
+                ge=1,
+                le=attachment_count,
+                description="The index of email attachment file, starting from 1",
             ),
         ],
         outout_folder=typing.Annotated[
@@ -96,10 +96,16 @@ def build_response_model(
 ) -> typing.Type[pydantic.BaseModel]:
     kwargs = {}
     if attachment_count > 0:
-        kwargs["archive_attachments"] = build_archive_attachment_model(
-            output_folders=output_folders,
-            attachment_count=attachment_count,
-        )
+        kwargs["archive_attachments"] = typing.Annotated[
+            list[
+                build_archive_attachment_model(
+                    output_folders=output_folders,
+                    attachment_count=attachment_count,
+                )
+                | None
+            ],
+            pydantic.Field(None),
+        ]
     return pydantic.create_model(
         "LLMResponse",
         csv_row=build_row_model(output_columns=output_columns),

@@ -188,7 +188,7 @@ def test_build_row_model(
             ["a", "b", "c"],
             3,
             pydantic.create_model(
-                "ArchiveAttachmentAction",
+                "ArchiveAttachment",
                 attachment_index=typing.Annotated[
                     int,
                     pydantic.Field(
