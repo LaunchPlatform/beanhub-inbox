@@ -78,6 +78,7 @@ class OutputColumn(InboxBaseModel):
     type: OutputColumnType
     description: str
     pattern: str | None = None
+    required: bool = True
 
 
 class ExtractConfig(InboxBaseModel):

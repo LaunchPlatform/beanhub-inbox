@@ -229,7 +229,7 @@ def test_build_archive_attachment_model(
 def test_extract():
     from transformers import AutoTokenizer
 
-    model_name = "Qwen/Qwen2.5-14B-Instruct-1M"
+    model_name = "agentica-org/DeepCoder-14B-Preview"
 
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     resp_model_cls = build_response_model(
@@ -237,22 +237,30 @@ def test_extract():
             OutputColumn(
                 name="desc",
                 type=OutputColumnType.str,
-                description="summary of the transaction",
+                description="The summary of the transaction",
+            ),
+            OutputColumn(
+                name="merchant",
+                type=OutputColumnType.str,
+                description="Name of the merchant if available",
+                required=False,
             ),
             OutputColumn(
                 name="amount",
                 type=OutputColumnType.decimal,
-                description="transaction amount",
+                description="transaction amount, do not include dollar sign and please follow the regex format",
             ),
             OutputColumn(
                 name="txn_id",
                 type=OutputColumnType.str,
                 description="Id of transaction",
+                required=False,
             ),
             OutputColumn(
                 name="date",
                 type=OutputColumnType.date,
-                description="transaction date",
+                description="The date of transaction",
+                required=False,
             ),
         ],
         output_folders=["receipts", "invoices"],
@@ -261,7 +269,7 @@ def test_extract():
     import json
 
     print(json.dumps(resp_model_cls.model_json_schema()))
-    # return
+    return
     prompt = textwrap.dedent(f"""\
     Extract data from the following email into JSON payload.
     Output ArchiveAttachment in the JSON for attachment files that look like invoices to the "invoices" folder.
@@ -324,6 +332,7 @@ def test_extract():
             device_map="auto",
         ),
     )
+    # model = models.llamacpp("TheBloke/phi-2-GGUF", "phi-2.Q4_K_M.gguf")
     generator = generate.json(model, resp_model_cls)
     result = generator(
         tokenizer.apply_chat_template(

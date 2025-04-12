@@ -15,14 +15,17 @@ class LLMResponseBaseModel(pydantic.BaseModel):
     pass
 
 
-class ArchiveAttachmentAction(pydantic.BaseModel):
-    output_folder: str
-    filename: str
-    attachment_index: int
+class ReasoningStep(LLMResponseBaseModel):
+    reasoning_step: str = pydantic.Field(
+        ..., description="Describe the reasoning step of data extraction logic here"
+    )
 
 
 def build_column_field(output_column: OutputColumn) -> (str, typing.Type):
-    kwargs = dict(description=output_column.description)
+    kwargs = dict(
+        description=output_column.description,
+        default=... if output_column.required else None,
+    )
     annotated_type: typing.Type
     if output_column.type == OutputColumnType.str:
         if output_column.pattern is not None:
@@ -108,6 +111,7 @@ def build_response_model(
         ]
     return pydantic.create_model(
         "LLMResponse",
+        # reasoning_steps=typing.Annotated[list[ReasoningStep], pydantic.Field(description="A list of reasoning steps for the extraction logic")],
         csv_row=build_row_model(output_columns=output_columns),
         **kwargs,
         __base__=LLMResponseBaseModel,
