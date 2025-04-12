@@ -8,7 +8,7 @@ from .data_types import OutputColumn
 from .data_types import OutputColumnType
 
 
-DECIMAL_REGEX = r"^-?(0|[1-9]\d*)(\.\d+)?$"
+DECIMAL_REGEX = "^-?(0|[1-9][0-9]*)(\\.[0-9]+)?$"
 
 
 class LLMResponseBaseModel(pydantic.BaseModel):
