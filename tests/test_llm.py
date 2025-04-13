@@ -14,6 +14,7 @@ from beanhub_inbox.llm import build_column_field
 from beanhub_inbox.llm import build_response_model
 from beanhub_inbox.llm import build_row_model
 from beanhub_inbox.llm import DECIMAL_REGEX
+from beanhub_inbox.llm import DEFAULT_COLUMNS
 from beanhub_inbox.llm import extract
 from beanhub_inbox.llm import LLMResponseBaseModel
 from beanhub_inbox.llm import think
@@ -299,6 +300,44 @@ def test_extract(model: str, prompt: str, end_token: str, expected: int):
             {"csv_row": {"amount": 30}},
             id="minimal",
         ),
+        pytest.param(
+            DEFAULT_COLUMNS,
+            [],
+            0,
+            textwrap.dedent("""\
+            # Instruction
+            
+            Extract the following email content and output JSON with the provided JSON schema.
+            
+            # JSON Schema
+            
+            {json_schema}
+
+            # Email content
+            From: BeanHub <noreply@beanhub.io>
+            To: user+repo@inbox.beanhub.io
+            Subject: Your BeanHub Pro subscription receipt
+
+            Thank you for purchase BeanHub Pro, the total amount is $29.99 USD.
+            The transaction id is: 7ffa4dbf-3f51-4c23-a85b-edd837db29ee
+            The tax amount is $1.23 USD.
+            The payment is processed on April 12, 2025.
+            
+            BeanHub Team.
+
+            """),
+            {
+                "csv_row": {
+                    "amount": "29.99",
+                    "tax": "1.23",
+                    "desc": "BeanHub Pro Subscription",
+                    "merchant": "BeanHub",
+                    "txn_id": "7ffa4dbf-3f51-4c23-a85b-edd837db29ee",
+                    "txn_date": "2025-04-12",
+                }
+            },
+            id="default-columns",
+        ),
     ],
 )
 def test_extract_email_values(
@@ -309,11 +348,14 @@ def test_extract_email_values(
     expected: dict,
 ):
     model_name = "deepcoder"
-    messages = think(model=model_name, prompt=prompt)
     response_model_cls = build_response_model(
         output_columns=columns,
         output_folders=output_folders,
         attachment_count=attachment_count,
+    )
+    messages = think(
+        model=model_name,
+        prompt=prompt.format(json_schema=response_model_cls.model_json_schema()),
     )
 
     result = extract(
