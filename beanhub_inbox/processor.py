@@ -3,6 +3,7 @@ import logging
 import os
 import pathlib
 import re
+import textwrap
 import typing
 import uuid
 
@@ -22,6 +23,10 @@ from .data_types import InputConfig
 from .data_types import SimpleFileMatch
 from .data_types import StrExactMatch
 from .data_types import StrRegexMatch
+from .llm import build_response_model
+from .llm import DEFAULT_COLUMNS
+from .llm import extract
+from .llm import think
 from .templates import make_environment
 
 
@@ -170,7 +175,49 @@ def process_imports(
                 continue
             rel_filepath = filepath.relative_to(input_dir)
             email = parse_email(filepath.read_bytes())
+
+            # TODO: match import rules
+
             if email.text_html:
-                email.text_html[0]
+                text = extract_html_text(email.text_html[0])
+            elif email.text_plain:
+                text = email.text_plain[0]
+            else:
+                raise ValueError("The email has no no content available for processing")
+
+            columns = DEFAULT_COLUMNS
+            response_model_cls = build_response_model(
+                output_columns=columns, output_folders=[], attachment_count=0
+            )
+
+            template = textwrap.dedent("""\
+            # Instruction
+
+            Extract the following email content and output JSON with the provided JSON schema.
+
+            # JSON Schema
+
+            {{ json_schema | tojson }}
+
+            # Email content
+
+            {{ content }}
+            """)
+            prompt = template_env.from_string(template).render(
+                json_schema=response_model_cls.model_json_schema(), content=text
+            )
+            model_name = "deepcoder"
+            messages = think(model=model_name, prompt=prompt)
+            print(f"Prompt:\n{prompt}")
+            print("Reasoning:", messages[1].content)
+            result = extract(
+                model=model_name,
+                messages=messages,
+                response_model_cls=response_model_cls,
+            )
+            import pprint
+
+            pprint.pprint(result.model_dump(mode="json"))
+
             # XXX:
             yield None
