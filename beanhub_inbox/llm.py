@@ -2,13 +2,17 @@ import datetime
 import enum
 import typing
 
+import ollama
 import pydantic
+from ollama import chat
 
 from .data_types import OutputColumn
 from .data_types import OutputColumnType
 
 
 DECIMAL_REGEX = "^-?(0|[1-9][0-9]*)(\\.[0-9]+)?$"
+DEDUCTION_DEFAULT_OPTIONS = dict(temperature=0)
+DEDUCTION_DEFAULT_END_TOKEN = "</think>"
 
 
 class LLMResponseBaseModel(pydantic.BaseModel):
@@ -116,3 +120,22 @@ def build_response_model(
         **kwargs,
         __base__=LLMResponseBaseModel,
     )
+
+
+def think(
+    model: str,
+    prompt: str,
+    end_token: str = DEDUCTION_DEFAULT_END_TOKEN,
+    options: dict | None = None,
+) -> list[ollama.Message]:
+    if options is None:
+        options = DEDUCTION_DEFAULT_OPTIONS
+    chunks = []
+    messages = [ollama.Message(role="user", content=prompt)]
+    for part in chat(model=model, messages=messages, options=options, stream=True):
+        msg_content = part["message"]["content"]
+        chunks.append(msg_content)
+        if msg_content == end_token:
+            break
+    messages.append(ollama.Message(role="assistant", content="".join(chunks)))
+    return messages

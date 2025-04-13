@@ -1,5 +1,6 @@
 import datetime
 import enum
+import logging
 import textwrap
 import typing
 
@@ -14,6 +15,10 @@ from beanhub_inbox.llm import build_response_model
 from beanhub_inbox.llm import build_row_model
 from beanhub_inbox.llm import DECIMAL_REGEX
 from beanhub_inbox.llm import LLMResponseBaseModel
+from beanhub_inbox.llm import think
+
+
+logger = logging.getLogger(__name__)
 
 
 @pytest.mark.parametrize(
@@ -223,6 +228,26 @@ def test_build_archive_attachment_model(
         output_folders=output_folders, attachment_count=attachment_count
     )
     assert model.model_json_schema() == expected.model_json_schema()
+
+
+@pytest.mark.parametrize(
+    "model, prompt, end_token",
+    [
+        ("deepcoder", "What is the result of 1 + 1?", "</think>"),
+    ],
+)
+def test_think(model: str, prompt: str, end_token: str):
+    messages = think(model=model, prompt=prompt, end_token=end_token)
+    assert len(messages) == 2
+    user_msg = messages[0]
+    assert user_msg.role == "user"
+    assert user_msg.content == prompt
+    think_msg = messages[1]
+    assert think_msg.role == "assistant"
+    assert think_msg.content.startswith("<think>")
+    assert think_msg.content.endswith("</think>")
+    logger.info("Think content:\n%s", think_msg.content)
+    assert "2" in think_msg.content
 
 
 # TODO: temporary
