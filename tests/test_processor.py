@@ -367,26 +367,39 @@ def test_process_imports(
     [
         (
             textwrap.dedent("""\
-    <div style="font-family: Arial, sans-serif; font-size: 14px;"><br></div><div class="protonmail_quote">
-            ------- Forwarded Message -------<br>
-            From: DigitalOcean Support &lt;support@digitalocean.com&gt;<br>
-            Date: On Sunday, September 1st, 2024 at 12:17 AM<br>
-            Subject: [DigitalOcean] Your 2024-08 invoice is available<br>
-            To: Fang-Pen Lin &lt;fangpen@launchplatform.com&gt;<br>
-            <br>
-            <blockquote class="protonmail_quote" type="cite">
-                <div>Usage charges for 2024-08</div>
-            </blockquote>
-    </div>
-    """),
+            <div style="font-family: Arial, sans-serif; font-size: 14px;"><br></div><div class="protonmail_quote">
+                    ------- Forwarded Message -------<br>
+                    From: DigitalOcean Support &lt;support@digitalocean.com&gt;<br>
+                    Date: On Sunday, September 1st, 2024 at 12:17 AM<br>
+                    Subject: [DigitalOcean] Your 2024-08 invoice is available<br>
+                    To: Fang-Pen Lin &lt;fangpen@launchplatform.com&gt;<br>
+                    <br>
+                    <blockquote class="protonmail_quote" type="cite">
+                        <div>Usage charges for 2024-08</div>
+                    </blockquote>
+            </div>
+            """),
             textwrap.dedent("""\
-    ------- Forwarded Message -------
-    From: DigitalOcean Support <support@digitalocean.com>
-    Date: On Sunday, September 1st, 2024 at 12:17 AM
-    Subject: [DigitalOcean] Your 2024-08 invoice is available
-    To: Fang-Pen Lin <fangpen@launchplatform.com>
-    Usage charges for 2024-08"""),
-        )
+        ------- Forwarded Message -------
+        From: DigitalOcean Support <support@digitalocean.com>
+        Date: On Sunday, September 1st, 2024 at 12:17 AM
+        Subject: [DigitalOcean] Your 2024-08 invoice is available
+        To: Fang-Pen Lin <fangpen@launchplatform.com>
+        Usage charges for 2024-08"""),
+        ),
+        (
+            textwrap.dedent("""\
+            first line
+            <style>
+            h1 { color: red; }
+            </style>
+            second line
+            <div>
+                third line
+            </div>
+            """),
+            "first line\nsecond line\nthird line",
+        ),
     ],
 )
 def test_extract_html_text(html: str, expected: str):

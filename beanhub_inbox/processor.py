@@ -146,7 +146,9 @@ def match_file(
 def extract_html_text(html: str) -> str:
     parser = etree.HTMLParser()
     tree = etree.fromstring(html, parser)
-    content = etree.tostring(tree, method="text").decode("utf8")
+    # remove unwanted tags such as style
+    etree.strip_elements(tree, "style", "script", with_tail=False)
+    content = etree.tostring(tree, method="text", encoding="utf8").decode("utf8")
     return "\n".join(
         filter(lambda line: line, (line.strip() for line in content.splitlines()))
     )
