@@ -13,6 +13,36 @@ from .data_types import OutputColumnType
 DECIMAL_REGEX = "^-?(0|[1-9][0-9]*)(\\.[0-9]+)?$"
 DEDUCTION_DEFAULT_OPTIONS = dict(temperature=0)
 DEDUCTION_DEFAULT_END_TOKEN = "</think>"
+DEFAULT_COLUMNS: list[OutputColumn] = [
+    OutputColumn(
+        name="desc",
+        type=OutputColumnType.str,
+        description="The summary of the transaction",
+    ),
+    OutputColumn(
+        name="merchant",
+        type=OutputColumnType.str,
+        description="Name of the merchant if available",
+        required=False,
+    ),
+    OutputColumn(
+        name="amount",
+        type=OutputColumnType.decimal,
+        description="Transaction amount, do not include dollar sign and please follow the regex format",
+    ),
+    OutputColumn(
+        name="txn_id",
+        type=OutputColumnType.str,
+        description="Id of transaction if available",
+        required=False,
+    ),
+    OutputColumn(
+        name="txn_date",
+        type=OutputColumnType.date,
+        description="The date of transaction if available",
+        required=False,
+    ),
+]
 
 
 class LLMResponseBaseModel(pydantic.BaseModel):
