@@ -18,6 +18,7 @@ from beanhub_inbox.data_types import SimpleFileMatch
 from beanhub_inbox.data_types import StrExactMatch
 from beanhub_inbox.data_types import StrRegexMatch
 from beanhub_inbox.processor import extract_html_text
+from beanhub_inbox.processor import extract_received_for_email
 from beanhub_inbox.processor import match_file
 from beanhub_inbox.processor import match_inbox_email
 from beanhub_inbox.processor import process_imports
@@ -342,6 +343,29 @@ def test_parse_yaml(fixtures_folder: pathlib.Path, filename: str):
         payload = yaml.safe_load(fo)
     doc = InboxDoc.model_validate(payload)
     assert doc
+
+
+@pytest.mark.parametrize(
+    "header_value, expected",
+    [
+        (
+            (
+                "from mail-4317.protonmail.ch (mail-4317.protonmail.ch [185.70.43.17])"
+                " by inbound-smtp.us-west-2.amazonaws.com with SMTP id n9dtgvp7tq2eoggselt8sr53kd1eglmau0kbn181"
+                " for fangpenlin+mybook+tag0+tag1@dev-inbox.beanhub.io;"
+                " Sun, 13 Apr 2025 22:48:38 +0000 (UTC)"
+            ),
+            "fangpenlin+mybook+tag0+tag1@dev-inbox.beanhub.io",
+        ),
+        (
+            "not-relative stuff",
+            None,
+        ),
+        ("", None),
+    ],
+)
+def test_extract_received_for_email(header_value: str, expected: str | None):
+    assert extract_received_for_email(header_value) == expected
 
 
 @pytest.mark.parametrize(

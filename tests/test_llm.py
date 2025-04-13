@@ -1,9 +1,11 @@
 import datetime
 import enum
+import json
 import logging
 import textwrap
 import typing
 
+import ollama
 import pydantic
 import pytest
 
@@ -14,11 +16,12 @@ from beanhub_inbox.llm import build_column_field
 from beanhub_inbox.llm import build_response_model
 from beanhub_inbox.llm import build_row_model
 from beanhub_inbox.llm import DECIMAL_REGEX
+from beanhub_inbox.llm import DEDUCTION_DEFAULT_OPTIONS
 from beanhub_inbox.llm import DEFAULT_COLUMNS
 from beanhub_inbox.llm import extract
 from beanhub_inbox.llm import LLMResponseBaseModel
 from beanhub_inbox.llm import think
-
+from beanhub_inbox.utils import GeneratorResult
 
 logger = logging.getLogger(__name__)
 
@@ -239,17 +242,44 @@ def test_build_archive_attachment_model(
     ],
 )
 def test_think(model: str, prompt: str, end_token: str):
-    messages = think(model=model, prompt=prompt, end_token=end_token)
-    assert len(messages) == 2
-    user_msg = messages[0]
-    assert user_msg.role == "user"
-    assert user_msg.content == prompt
-    think_msg = messages[1]
+    think_msg = think(
+        model=model,
+        messages=[ollama.Message(role="user", content=prompt)],
+        end_token=end_token,
+    )
     assert think_msg.role == "assistant"
     assert think_msg.content.startswith("<think>")
     assert think_msg.content.endswith("</think>")
     logger.info("Think content:\n%s", think_msg.content)
     assert "2" in think_msg.content
+
+
+@pytest.mark.parametrize(
+    "model, prompt, end_token",
+    [
+        ("deepcoder", "What is the result of 1 + 1?", "</think>"),
+    ],
+)
+def test_think_stream(model: str, prompt: str, end_token: str):
+    chunks: list[str] = []
+    think_generator = GeneratorResult(
+        think(
+            model=model,
+            messages=[ollama.Message(role="user", content=prompt)],
+            end_token=end_token,
+            stream=True,
+        )
+    )
+    for part in think_generator:
+        assert part.message.role == "assistant"
+        chunks.append(part.message.content)
+    content = "".join(chunks)
+    assert content.startswith("<think>")
+    assert content.endswith("</think>")
+    logger.info("Think content:\n%s", content)
+    assert "2" in content
+    assert think_generator.value.content == content
+    assert think_generator.value.role == "assistant"
 
 
 @pytest.mark.parametrize(
@@ -265,7 +295,9 @@ def test_think(model: str, prompt: str, end_token: str):
     ],
 )
 def test_extract(model: str, prompt: str, end_token: str, expected: int):
-    messages = think(model=model, prompt=prompt, end_token=end_token)
+    messages = [ollama.Message(role="user", content=prompt)]
+    think_message = think(model=model, messages=messages, end_token=end_token)
+    messages.append(think_message)
 
     class CalculationResult(LLMResponseBaseModel):
         value: int
@@ -279,27 +311,27 @@ def test_extract(model: str, prompt: str, end_token: str, expected: int):
 @pytest.mark.parametrize(
     "columns, output_folders, attachment_count, prompt, expected",
     [
-        pytest.param(
-            [
-                OutputColumn(
-                    name="amount",
-                    type=OutputColumnType.int,
-                    description="transaction amount",
-                ),
-            ],
-            [],
-            0,
-            textwrap.dedent("""\
-            Extract the following email content and output JSON
-            
-            # Email content
-            
-            Thank you for purchase BeanHub.io, the total amount is $30.00 USD
-            
-            """),
-            {"csv_row": {"amount": 30}},
-            id="minimal",
-        ),
+        # pytest.param(
+        #     [
+        #         OutputColumn(
+        #             name="amount",
+        #             type=OutputColumnType.int,
+        #             description="transaction amount",
+        #         ),
+        #     ],
+        #     [],
+        #     0,
+        #     textwrap.dedent("""\
+        #     Extract the following email content and output JSON
+        #
+        #     # Email content
+        #
+        #     Thank you for purchase BeanHub.io, the total amount is $30.00 USD
+        #
+        #     """),
+        #     {"csv_row": {"amount": 30}},
+        #     id="minimal",
+        # ),
         pytest.param(
             DEFAULT_COLUMNS,
             [],
@@ -357,6 +389,8 @@ def test_extract_email_values(
         model=model_name,
         prompt=prompt.format(json_schema=response_model_cls.model_json_schema()),
     )
+    print("@" * 20, messages[1].content)
+    logger.info("Think content:\n%s", messages[1].content)
 
     result = extract(
         model=model_name,

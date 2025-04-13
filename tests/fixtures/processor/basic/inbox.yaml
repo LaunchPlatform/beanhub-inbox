@@ -4,4 +4,4 @@ inputs:
 imports:
   - actions:
     - extract:
-        output_csv: "{{ date.year }}.csv"
+        output_csv: "output.csv"

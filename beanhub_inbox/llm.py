@@ -12,40 +12,46 @@ from .data_types import OutputColumnType
 
 DECIMAL_REGEX = "^-?(0|[1-9][0-9]*)(\\.[0-9]+)?$"
 DEDUCTION_DEFAULT_OPTIONS = dict(temperature=0)
-DEDUCTION_DEFAULT_END_TOKEN = "</think>"
 DEFAULT_COLUMNS: list[OutputColumn] = [
+    OutputColumn(
+        name="valid",
+        type=OutputColumnType.bool,
+        description="True if this email is for a transaction such as an invoice or receipt, otherwise False",
+    ),
     OutputColumn(
         name="desc",
         type=OutputColumnType.str,
-        description="The summary of the transaction",
+        description="The summary of the transaction in a short sentence",
+        required=False,
     ),
     OutputColumn(
         name="merchant",
         type=OutputColumnType.str,
-        description="Name of the merchant if available",
+        description="Name of the merchant who sent the email if available",
         required=False,
     ),
     OutputColumn(
         name="amount",
         type=OutputColumnType.decimal,
-        description="Transaction amount, do not include dollar sign and please follow the regex format",
+        description="Transaction amount as a decimal string value, do not include dollar sign and please follow the regex format",
+        required=False,
     ),
     OutputColumn(
         name="tax",
         type=OutputColumnType.decimal,
-        description="Tax amount if available, do not include dollar sign and please follow the regex format",
+        description="Tax amount as a decimal string value, do not include dollar sign and please follow the regex format",
         required=False,
     ),
     OutputColumn(
         name="txn_id",
         type=OutputColumnType.str,
-        description="Id of transaction if available",
+        description="Id of transaction, such as invoice number or receipt number",
         required=False,
     ),
     OutputColumn(
         name="txn_date",
         type=OutputColumnType.date,
-        description="The date of transaction if available",
+        description="The date of transaction if available, in YYYY-MM-DD format",
         required=False,
     ),
 ]
@@ -64,30 +70,32 @@ def build_column_field(output_column: OutputColumn) -> (str, typing.Type):
     if output_column.type == OutputColumnType.str:
         if output_column.pattern is not None:
             kwargs["pattern"] = output_column.pattern
-        annotated_type = typing.Annotated[str, pydantic.Field(**kwargs)]
+        value_type = str
     elif output_column.type == OutputColumnType.int:
-        annotated_type = typing.Annotated[int, pydantic.Field(**kwargs)]
+        value_type = int
     elif output_column.type == OutputColumnType.decimal:
-        annotated_type = typing.Annotated[
-            str, pydantic.Field(pattern=DECIMAL_REGEX, **kwargs)
-        ]
+        kwargs["pattern"] = DECIMAL_REGEX
+        value_type = str
     elif output_column.type == OutputColumnType.date:
-        annotated_type = typing.Annotated[datetime.date, pydantic.Field(**kwargs)]
+        value_type = datetime.date
     elif output_column.type == OutputColumnType.datetime:
-        annotated_type = typing.Annotated[datetime.datetime, pydantic.Field(**kwargs)]
+        value_type = datetime.datetime
     elif output_column.type == OutputColumnType.bool:
-        annotated_type = typing.Annotated[bool, pydantic.Field(**kwargs)]
+        value_type = bool
     else:
         raise ValueError(f"Unexpected type {output_column.type}")
+    if not output_column.required:
+        value_type = typing.Optional[value_type]
+    annotated_type = typing.Annotated[value_type, pydantic.Field(**kwargs)]
     return output_column.name, annotated_type
 
 
 def build_row_model(
     output_columns: list[OutputColumn],
-) -> typing.Type[pydantic.BaseModel]:
+) -> typing.Type[LLMResponseBaseModel]:
     fields = map(build_column_field, output_columns)
     return pydantic.create_model(
-        "CsvRow", **dict(fields), __base__=LLMResponseBaseModel
+        "FieldValue", **dict(fields), __base__=LLMResponseBaseModel
     )
 
 
@@ -145,29 +153,46 @@ def build_response_model(
         ]
     return pydantic.create_model(
         "LLMResponse",
+        # reasoning_steps=typing.Annotated[list[str], pydantic.Field(description="Reasoning steps")],
         csv_row=build_row_model(output_columns=output_columns),
         **kwargs,
         __base__=LLMResponseBaseModel,
     )
 
 
-def think(
+def _stream_think(
     model: str,
-    prompt: str,
-    end_token: str = DEDUCTION_DEFAULT_END_TOKEN,
+    messages: list[ollama.Message],
+    end_token: str | None = None,
     options: dict | None = None,
-) -> list[ollama.Message]:
-    if options is None:
-        options = DEDUCTION_DEFAULT_OPTIONS
-    chunks = []
-    messages = [ollama.Message(role="user", content=prompt)]
+) -> typing.Generator[ollama.ChatResponse, None, ollama.Message]:
+    chunks: list[str] = []
     for part in chat(model=model, messages=messages, options=options, stream=True):
         msg_content = part["message"]["content"]
+        yield part
         chunks.append(msg_content)
-        if msg_content == end_token:
+        if end_token is not None and msg_content == end_token:
             break
-    messages.append(ollama.Message(role="assistant", content="".join(chunks)))
-    return messages
+    return ollama.Message(role="assistant", content="".join(chunks))
+
+
+def think(
+    model: str,
+    messages: list[ollama.Message],
+    end_token: str | None = None,
+    options: dict | None = None,
+    stream: bool = False,
+) -> typing.Generator[ollama.ChatResponse, None, ollama.Message] | ollama.Message:
+    if options is None:
+        options = DEDUCTION_DEFAULT_OPTIONS
+    if stream:
+        return _stream_think(
+            model=model, messages=messages, options=options, end_token=end_token
+        )
+    resp = chat(model=model, messages=messages, options=options)
+    if end_token is not None:
+        resp.message.content = resp.message.content.split(end_token, 1)[0] + end_token
+    return resp.message
 
 
 T = typing.TypeVar("T", bound=LLMResponseBaseModel)
@@ -186,5 +211,13 @@ def extract(
         messages=messages,
         options=options,
         format=response_model_cls.model_json_schema(),
+        stream=True,
     )
-    return response_model_cls.model_validate_json(response["message"]["content"])
+
+    chunks = []
+    for part in response:
+        msg_content = part["message"]["content"]
+        chunks.append(msg_content)
+        print(msg_content, end="", flush=True)
+
+    return response_model_cls.model_validate_json("".join(chunks))

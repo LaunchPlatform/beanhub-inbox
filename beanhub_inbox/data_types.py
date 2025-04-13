@@ -102,10 +102,15 @@ class IgnoreImportAction(InboxBaseModel):
 ImportAction = ExtractImportAction | IgnoreImportAction
 
 
+class EmailMatchRule(InboxBaseModel):
+    # TODO:
+    pass
+
+
 class ImportConfig(InboxBaseModel):
     # Name of import rule, for users to read only
     name: str | None = None
-    # match: TxnMatchRule | list[TxnMatchVars]
+    match: EmailMatchRule | None = None
     actions: list[ImportAction]
 
 
