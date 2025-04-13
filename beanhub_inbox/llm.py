@@ -31,6 +31,12 @@ DEFAULT_COLUMNS: list[OutputColumn] = [
         description="Transaction amount, do not include dollar sign and please follow the regex format",
     ),
     OutputColumn(
+        name="tax",
+        type=OutputColumnType.decimal,
+        description="Tax amount if available, do not include dollar sign and please follow the regex format",
+        required=False,
+    ),
+    OutputColumn(
         name="txn_id",
         type=OutputColumnType.str,
         description="Id of transaction if available",
