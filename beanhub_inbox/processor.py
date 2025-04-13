@@ -6,7 +6,9 @@ import re
 import typing
 import uuid
 
+from fast_mail_parser import parse_email
 from jinja2.sandbox import SandboxedEnvironment
+from lxml import etree
 
 from .data_types import ArchiveInboxAction
 from .data_types import IgnoreInboxAction
@@ -136,6 +138,15 @@ def match_file(
         raise ValueError(f"Unexpected file match type {type(pattern)}")
 
 
+def extract_html_text(html: str) -> str:
+    parser = etree.HTMLParser()
+    tree = etree.fromstring(html, parser)
+    content = etree.tostring(tree, method="text").decode("utf8")
+    return "\n".join(
+        filter(lambda line: line, (line.strip() for line in content.splitlines()))
+    )
+
+
 def process_imports(
     inbox_doc: InboxDoc,
     input_dir: pathlib.Path,
@@ -158,5 +169,8 @@ def process_imports(
             if not match_file(input_config.match, filepath):
                 continue
             rel_filepath = filepath.relative_to(input_dir)
+            email = parse_email(filepath.read_bytes())
+            if email.text_html:
+                email.text_html[0]
             # XXX:
             yield None

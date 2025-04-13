@@ -1,4 +1,5 @@
 import pathlib
+import textwrap
 
 import pytest
 import yaml
@@ -16,6 +17,7 @@ from beanhub_inbox.data_types import InboxMatch
 from beanhub_inbox.data_types import SimpleFileMatch
 from beanhub_inbox.data_types import StrExactMatch
 from beanhub_inbox.data_types import StrRegexMatch
+from beanhub_inbox.processor import extract_html_text
 from beanhub_inbox.processor import match_file
 from beanhub_inbox.processor import match_inbox_email
 from beanhub_inbox.processor import process_imports
@@ -358,3 +360,34 @@ def test_process_imports(
         payload = yaml.safe_load(fo)
     doc = InboxDoc.model_validate(payload)
     assert list(process_imports(inbox_doc=doc, input_dir=folder_path)) == expected
+
+
+@pytest.mark.parametrize(
+    "html, expected",
+    [
+        (
+            textwrap.dedent("""\
+    <div style="font-family: Arial, sans-serif; font-size: 14px;"><br></div><div class="protonmail_quote">
+            ------- Forwarded Message -------<br>
+            From: DigitalOcean Support &lt;support@digitalocean.com&gt;<br>
+            Date: On Sunday, September 1st, 2024 at 12:17 AM<br>
+            Subject: [DigitalOcean] Your 2024-08 invoice is available<br>
+            To: Fang-Pen Lin &lt;fangpen@launchplatform.com&gt;<br>
+            <br>
+            <blockquote class="protonmail_quote" type="cite">
+                <div>Usage charges for 2024-08</div>
+            </blockquote>
+    </div>
+    """),
+            textwrap.dedent("""\
+    ------- Forwarded Message -------
+    From: DigitalOcean Support <support@digitalocean.com>
+    Date: On Sunday, September 1st, 2024 at 12:17 AM
+    Subject: [DigitalOcean] Your 2024-08 invoice is available
+    To: Fang-Pen Lin <fangpen@launchplatform.com>
+    Usage charges for 2024-08"""),
+        )
+    ],
+)
+def test_extract_html_text(html: str, expected: str):
+    assert extract_html_text(html) == expected
