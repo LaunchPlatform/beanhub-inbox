@@ -19,12 +19,6 @@ class LLMResponseBaseModel(pydantic.BaseModel):
     pass
 
 
-class ReasoningStep(LLMResponseBaseModel):
-    reasoning_step: str = pydantic.Field(
-        ..., description="Describe the reasoning step of data extraction logic here"
-    )
-
-
 def build_column_field(output_column: OutputColumn) -> (str, typing.Type):
     kwargs = dict(
         description=output_column.description,
@@ -100,7 +94,7 @@ def build_response_model(
     output_columns: list[OutputColumn],
     output_folders: list[str],
     attachment_count: int,
-) -> typing.Type[pydantic.BaseModel]:
+) -> typing.Type[LLMResponseBaseModel]:
     kwargs = {}
     if attachment_count > 0:
         kwargs["archive_attachments"] = typing.Annotated[
@@ -115,7 +109,6 @@ def build_response_model(
         ]
     return pydantic.create_model(
         "LLMResponse",
-        # reasoning_steps=typing.Annotated[list[ReasoningStep], pydantic.Field(description="A list of reasoning steps for the extraction logic")],
         csv_row=build_row_model(output_columns=output_columns),
         **kwargs,
         __base__=LLMResponseBaseModel,

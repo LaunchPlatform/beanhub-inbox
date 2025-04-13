@@ -275,120 +275,50 @@ def test_extract(model: str, prompt: str, end_token: str, expected: int):
     assert result.value == 2
 
 
-# TODO: temporary
-def test_extract():
-    from transformers import AutoTokenizer
-
-    model_name = "agentica-org/DeepCoder-14B-Preview"
-
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
-    resp_model_cls = build_response_model(
-        output_columns=[
-            OutputColumn(
-                name="desc",
-                type=OutputColumnType.str,
-                description="The summary of the transaction",
-            ),
-            OutputColumn(
-                name="merchant",
-                type=OutputColumnType.str,
-                description="Name of the merchant if available",
-                required=False,
-            ),
-            OutputColumn(
-                name="amount",
-                type=OutputColumnType.decimal,
-                description="transaction amount, do not include dollar sign and please follow the regex format",
-            ),
-            OutputColumn(
-                name="txn_id",
-                type=OutputColumnType.str,
-                description="Id of transaction",
-                required=False,
-            ),
-            OutputColumn(
-                name="date",
-                type=OutputColumnType.date,
-                description="The date of transaction",
-                required=False,
-            ),
-        ],
-        output_folders=["receipts", "invoices"],
-        attachment_count=2,
-    )
-    import json
-
-    print(json.dumps(resp_model_cls.model_json_schema()))
-    return
-    prompt = textwrap.dedent(f"""\
-    Extract data from the following email into JSON payload.
-    Output ArchiveAttachment in the JSON for attachment files that look like invoices to the "invoices" folder.
-    Output ArchiveAttachment in the JSON for attachment files that look like receipts to the "receipts" folder.
-    
-    # JSON schema
-    
-    ```
-    {json.dumps(resp_model_cls.model_json_schema())}
-    ```
-    
-    # Output folders
-    
-    - receipts
-    - invoices
-    
-    # Attachments
-    
-    1. filename="GitHub-invoice.pdf", mime_type="application/pdf"
-    2. filename="GitHub-receipt.pdf", mime_type="application/pdf"
-    
-    # Email content
-    
-    We received payment for your GitHub.com subscription. Thanks for your business!
-
-    Questions? Visit https://github.com/contact
-
-    ------------------------------------
-    GITHUB RECEIPT - PERSONAL SUBSCRIPTION - fangpenlin
-
-
-    GitHub Developer Plan - Month: $4.00 USD
-    Apr 1, 2025 - Apr 30, 2025
-
-
-    Tax: $0.00 USD
-    Total: $4.00 USD*
-
-    Charged to: Visa (4*** **** **** 1234)
-    Transaction ID: 6cd4f0a6-0686-45bf-a077-775e95206da6
-    Date: 01 Apr 2025 09:55AM PDT
-
-
-    GitHub, Inc.
-    88 Colin P. Kelly Jr. Street
-    San Francisco, CA 94107
-    ------------------------------------
-
-    * VAT/GST paid directly by GitHub, where applicable
-    """)
-
-    # print(tokenizer.apply_chat_template([{"role": "user", "content": prompt}], tokenize=False, add_generation_prompt=True))
-    from outlines import models, generate
-
-    model = models.transformers(
-        model_name,
-        device="auto",
-        model_kwargs=dict(
-            torch_dtype="auto",
-            device_map="auto",
+@pytest.mark.parametrize(
+    "columns, output_folders, attachment_count, prompt, expected",
+    [
+        pytest.param(
+            [
+                OutputColumn(
+                    name="amount",
+                    type=OutputColumnType.int,
+                    description="transaction amount",
+                ),
+            ],
+            [],
+            0,
+            textwrap.dedent("""\
+            Extract the following email content and output JSON
+            
+            # Email content
+            
+            Thank you for purchase BeanHub.io, the total amount is $30.00 USD
+            
+            """),
+            {"csv_row": {"amount": 30}},
+            id="minimal",
         ),
+    ],
+)
+def test_extract_email_values(
+    prompt: str,
+    columns: list[OutputColumn],
+    output_folders: list[str],
+    attachment_count: int,
+    expected: dict,
+):
+    model_name = "deepcoder"
+    messages = think(model=model_name, prompt=prompt)
+    response_model_cls = build_response_model(
+        output_columns=columns,
+        output_folders=output_folders,
+        attachment_count=attachment_count,
     )
-    # model = models.llamacpp("TheBloke/phi-2-GGUF", "phi-2.Q4_K_M.gguf")
-    generator = generate.json(model, resp_model_cls)
-    result = generator(
-        tokenizer.apply_chat_template(
-            [{"role": "user", "content": prompt}],
-            tokenize=False,
-            add_generation_prompt=True,
-        )
+
+    result = extract(
+        model=model_name,
+        messages=messages,
+        response_model_cls=response_model_cls,
     )
-    print(result)
+    assert result.model_dump(mode="json") == expected
