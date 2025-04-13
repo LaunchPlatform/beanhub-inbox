@@ -365,7 +365,7 @@ def test_process_imports(
 @pytest.mark.parametrize(
     "html, expected",
     [
-        (
+        pytest.param(
             textwrap.dedent("""\
             <div style="font-family: Arial, sans-serif; font-size: 14px;"><br></div><div class="protonmail_quote">
                     ------- Forwarded Message -------<br>
@@ -380,14 +380,15 @@ def test_process_imports(
             </div>
             """),
             textwrap.dedent("""\
-        ------- Forwarded Message -------
-        From: DigitalOcean Support <support@digitalocean.com>
-        Date: On Sunday, September 1st, 2024 at 12:17 AM
-        Subject: [DigitalOcean] Your 2024-08 invoice is available
-        To: Fang-Pen Lin <fangpen@launchplatform.com>
-        Usage charges for 2024-08"""),
+            ------- Forwarded Message -------
+            From: DigitalOcean Support <support@digitalocean.com>
+            Date: On Sunday, September 1st, 2024 at 12:17 AM
+            Subject: [DigitalOcean] Your 2024-08 invoice is available
+            To: Fang-Pen Lin <fangpen@launchplatform.com>
+            Usage charges for 2024-08"""),
+            id="basic",
         ),
-        (
+        pytest.param(
             textwrap.dedent("""\
             first line
             <style>
@@ -399,6 +400,21 @@ def test_process_imports(
             </div>
             """),
             "first line\nsecond line\nthird line",
+            id="style",
+        ),
+        pytest.param(
+            textwrap.dedent("""\
+            first line
+            <script>
+            console.log('hi')
+            </script>
+            second line
+            <div>
+                third line
+            </div>
+            """),
+            "first line\nsecond line\nthird line",
+            id="script",
         ),
     ],
 )
