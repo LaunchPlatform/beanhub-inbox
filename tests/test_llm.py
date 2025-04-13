@@ -14,6 +14,7 @@ from beanhub_inbox.llm import build_column_field
 from beanhub_inbox.llm import build_response_model
 from beanhub_inbox.llm import build_row_model
 from beanhub_inbox.llm import DECIMAL_REGEX
+from beanhub_inbox.llm import extract
 from beanhub_inbox.llm import LLMResponseBaseModel
 from beanhub_inbox.llm import think
 
@@ -248,6 +249,30 @@ def test_think(model: str, prompt: str, end_token: str):
     assert think_msg.content.endswith("</think>")
     logger.info("Think content:\n%s", think_msg.content)
     assert "2" in think_msg.content
+
+
+@pytest.mark.parametrize(
+    "model, prompt, end_token, expected",
+    [
+        pytest.param(
+            "deepcoder",
+            "What is the result of 1 + 1?",
+            "</think>",
+            2,
+            id="deepcoder-simple-math",
+        ),
+    ],
+)
+def test_extract(model: str, prompt: str, end_token: str, expected: int):
+    messages = think(model=model, prompt=prompt, end_token=end_token)
+
+    class CalculationResult(LLMResponseBaseModel):
+        value: int
+
+    result = extract(
+        model=model, messages=messages, response_model_cls=CalculationResult
+    )
+    assert result.value == 2
 
 
 # TODO: temporary

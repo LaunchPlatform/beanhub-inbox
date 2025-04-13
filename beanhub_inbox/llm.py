@@ -139,3 +139,23 @@ def think(
             break
     messages.append(ollama.Message(role="assistant", content="".join(chunks)))
     return messages
+
+
+T = typing.TypeVar("T", bound=LLMResponseBaseModel)
+
+
+def extract(
+    model: str,
+    messages: list[ollama.Message],
+    response_model_cls: typing.Type[T],
+    options: dict | None = None,
+) -> T:
+    if options is None:
+        options = DEDUCTION_DEFAULT_OPTIONS
+    response = chat(
+        model=model,
+        messages=messages,
+        options=options,
+        format=response_model_cls.model_json_schema(),
+    )
+    return response_model_cls.model_validate_json(response["message"]["content"])
