@@ -261,9 +261,8 @@ def perform_extract_action(
                 email_id = row["id"]
                 if email_id == email_file.id:
                     logger.info(
-                        "Found email %s (%s) row %s in output CSV file %s, skip",
+                        "Found email %s row %s in output CSV file %s, skip",
                         email_file.id,
-                        email_file.filepath,
                         index + 1,
                         output_csv,
                     )
@@ -287,12 +286,10 @@ def perform_extract_action(
     columns = DEFAULT_COLUMNS
     # TODO: we can run all columns at once to speed up if we need to
     for column in columns:
-        logger.debug(
-            'Extract "%s" (%s type) column value for email %s at %s',
+        logger.info(
+            'Extract "%s" (%s type) column value',
             column.name,
             column.type.value,
-            email_file.id,
-            email_file.filepath,
         )
         response_model_cls = build_row_model(
             output_columns=[column],
@@ -310,9 +307,8 @@ def perform_extract_action(
         # TODO: read this from config instead
         model_name = "deepcoder"
         logger.debug(
-            "Extract data for email %s at %s with prompt:\n%s",
+            "Extract data for email %s with prompt:\n%s",
             email_file.id,
-            email_file.filepath,
             prompt,
         )
 
@@ -341,16 +337,15 @@ def perform_extract_action(
         if column.name == "valid" and not json_obj["valid"]:
             # TODO: find a way to make it possible to define which column is the "valid"
             logger.info(
-                "Email %s at %s is not a valid one, skip all other columns",
+                "Email %s is not a valid one, skip all other columns",
                 email_file.id,
-                email_file.filepath,
             )
             break
 
     logger.info(
-        "Write email %s at %s row data %s to CSV file %s",
+        "Write email %s row data %s to CSV file %s",
         email_file.id,
-        email_file.filepath,
+        row,
         output_csv,
     )
     if output_csv.exists():
