@@ -1,3 +1,4 @@
+import contextlib
 import csv
 import dataclasses
 import logging
@@ -243,6 +244,7 @@ def perform_extract_action(
     email_file: EmailFile,
     parsed_email: fast_mail_parser.PyMail,
     action: ExtractImportAction,
+    think_progress: typing.ContextManager[typing.Callable[[str], None]] | None = None,
 ):
     # TODO: take from param
     debug_dump_folder = pathlib.Path.cwd() / ".debug"
@@ -307,7 +309,7 @@ def perform_extract_action(
         # TODO: read this from config instead
         model_name = "deepcoder"
         logger.debug(
-            "Extract data for email %s with prompt:\n%s",
+            "Extracting data for email %s with prompt:\n%s",
             email_file.id,
             prompt,
         )
@@ -317,9 +319,14 @@ def perform_extract_action(
         think_generator = GeneratorResult(
             think(model=model_name, messages=messages, stream=True)
         )
-        for part in think_generator:
-            # TODO: find a better way to report this to caller
-            print(part.message.content, end="", flush=True)
+        think_progress_ctx = think_progress
+        if think_progress is None:
+            think_progress_ctx = contextlib.nullcontext()
+        with think_progress_ctx as progress:
+            for part in think_generator:
+                if progress is not None:
+                    progress(part.message.content)
+
         messages.append(think_generator.value)
         if debug_dump_folder is not None:
             (
@@ -333,6 +340,8 @@ def perform_extract_action(
         )
 
         json_obj = result.model_dump(mode="json")
+        logger.info('Extracted "%s" value %r', column.name, json_obj.get(column.name))
+
         row.update(json_obj)
         if column.name == "valid" and not json_obj["valid"]:
             # TODO: find a way to make it possible to define which column is the "valid"
@@ -367,42 +376,10 @@ def perform_extract_action(
             writer.writerow(dict(id=email_file.id) | row)
 
 
-def perform_ignore_action(
-    template_env: SandboxedEnvironment,
-    email_file: EmailFile,
-    parsed_email: fast_mail_parser.PyMail,
-    action: IgnoreImportAction,
-):
-    logger.info("Ignore email %s at %s", email_file.id, email_file.filepath)
-
-
-def perform_import_action(
-    template_env: SandboxedEnvironment,
-    email_file: EmailFile,
-    parsed_email: fast_mail_parser.PyMail,
-    action: ImportAction,
-):
-    if isinstance(action, ExtractImportAction):
-        return perform_extract_action(
-            template_env,
-            email_file=email_file,
-            parsed_email=parsed_email,
-            action=action,
-        )
-    elif isinstance(action, IgnoreImportAction):
-        return perform_ignore_action(
-            template_env,
-            email_file=email_file,
-            parsed_email=parsed_email,
-            action=action,
-        )
-    else:
-        raise ValueError(f"Unexpected action type {type(action)}")
-
-
 def process_imports(
     inbox_doc: InboxDoc,
     input_dir: pathlib.Path,
+    think_progress: typing.ContextManager[typing.Callable[[str], None]] | None = None,
 ):
     template_env = make_environment()
     omit_token = uuid.uuid4().hex
@@ -452,12 +429,18 @@ def process_imports(
                 else matched_import_config_index,
             )
             for action in matched_import_config.actions:
-                perform_import_action(
-                    template_env=template_env,
-                    email_file=email_file,
-                    parsed_email=parsed_email,
-                    action=action,
-                )
+                if isinstance(action, ExtractImportAction):
+                    perform_extract_action(
+                        template_env=template_env,
+                        email_file=email_file,
+                        parsed_email=parsed_email,
+                        action=action,
+                        think_progress=think_progress,
+                    )
+                elif isinstance(action, IgnoreImportAction):
+                    logger.info("Ignore email %s", email_file.id)
+                else:
+                    raise ValueError(f"Unexpected action type {type(action)}")
 
             # XXX:
             yield None
