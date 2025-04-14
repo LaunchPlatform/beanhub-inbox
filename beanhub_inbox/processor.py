@@ -244,7 +244,10 @@ def perform_extract_action(
     email_file: EmailFile,
     parsed_email: fast_mail_parser.PyMail,
     action: ExtractImportAction,
-    think_progress: typing.ContextManager[typing.Callable[[str], None]] | None = None,
+    think_progress_factory: typing.Callable[
+        [], typing.ContextManager[typing.Callable[[str], None]]
+    ]
+    | None = None,
 ):
     # TODO: take from param
     debug_dump_folder = pathlib.Path.cwd() / ".debug"
@@ -289,7 +292,7 @@ def perform_extract_action(
     # TODO: we can run all columns at once to speed up if we need to
     for column in columns:
         logger.info(
-            'Extract "%s" (%s type) column value',
+            'Extracting "%s" (%s type) column value ...',
             column.name,
             column.type.value,
         )
@@ -319,9 +322,9 @@ def perform_extract_action(
         think_generator = GeneratorResult(
             think(model=model_name, messages=messages, stream=True)
         )
-        think_progress_ctx = think_progress
-        if think_progress is None:
-            think_progress_ctx = contextlib.nullcontext()
+        think_progress_ctx = contextlib.nullcontext()
+        if think_progress_factory is not None:
+            think_progress_ctx = think_progress_factory()
         with think_progress_ctx as progress:
             for part in think_generator:
                 if progress is not None:
@@ -379,7 +382,10 @@ def perform_extract_action(
 def process_imports(
     inbox_doc: InboxDoc,
     input_dir: pathlib.Path,
-    think_progress: typing.ContextManager[typing.Callable[[str], None]] | None = None,
+    think_progress_factory: typing.Callable[
+        [], typing.ContextManager[typing.Callable[[str], None]]
+    ]
+    | None = None,
 ):
     template_env = make_environment()
     omit_token = uuid.uuid4().hex
@@ -435,7 +441,7 @@ def process_imports(
                         email_file=email_file,
                         parsed_email=parsed_email,
                         action=action,
-                        think_progress=think_progress,
+                        think_progress_factory=think_progress_factory,
                     )
                 elif isinstance(action, IgnoreImportAction):
                     logger.info("Ignore email %s", email_file.id)
