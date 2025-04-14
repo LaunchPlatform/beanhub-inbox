@@ -41,14 +41,11 @@ logger = logging.getLogger(__name__)
 BEANHUB_INBOX_DOMAINS = frozenset(
     ["inbox.beanhub.io", "stage-inbox.beanhub.io", "dev-inbox.beanhub.io"]
 )
-DEFAULT_PROMPT_INSTRUCTION = """\
-Extract value from the following email content and output to an object with only one field `{{ column.name }}` in JSON.
-Think step by step.
-"""
 DEFAULT_PROMPT_TEMPLATE = """\
 # Instruction
 
-{{ instruction }}
+Extract value from the following email content and output to an object with only one field `{{ column.name }}` in JSON.
+Think step by step.
 
 # JSON value definition
 
@@ -301,17 +298,10 @@ def perform_extract_action(
             output_columns=[column],
         )
 
-        instruction = DEFAULT_PROMPT_INSTRUCTION
-        if action.extract.instruction is not None:
-            instruction = action.extract.instruction
-        instruction = template_env.from_string(instruction).render(
-            column=column,
-        )
         prompt = template_env.from_string(template).render(
             json_schema=response_model_cls.model_json_schema(),
             content=text,
             column=column,
-            instruction=instruction,
         )
         if debug_dump_folder is not None:
             (

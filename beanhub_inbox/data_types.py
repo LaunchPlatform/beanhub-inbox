@@ -84,7 +84,6 @@ class OutputColumn(InboxBaseModel):
 class ExtractConfig(InboxBaseModel):
     output_csv: str
     template: str | None = None
-    instruction: str | None = None
 
 
 class ExtractImportAction(InboxBaseModel):

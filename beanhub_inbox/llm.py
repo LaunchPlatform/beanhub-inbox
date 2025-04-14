@@ -218,6 +218,7 @@ def extract(
     for part in response:
         msg_content = part["message"]["content"]
         chunks.append(msg_content)
+        # XXX:
         print(msg_content, end="", flush=True)
 
     return response_model_cls.model_validate_json("".join(chunks))
