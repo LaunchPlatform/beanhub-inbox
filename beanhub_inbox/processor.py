@@ -286,8 +286,9 @@ def perform_extract_action(
     if action.extract.template is not None:
         template = action.extract.template
 
-    final_json_obj = {}
+    row = {}
     columns = DEFAULT_COLUMNS
+    # TODO: we can run all columns at once to speed up if we need to
     for column in columns:
         logger.debug(
             'Extract "%s" (%s type) column value for email %s at %s',
@@ -346,7 +347,7 @@ def perform_extract_action(
         )
 
         json_obj = result.model_dump(mode="json")
-        final_json_obj.update(json_obj)
+        row.update(json_obj)
         if column.name == "valid" and not json_obj["valid"]:
             # TODO: find a way to make it possible to define which column is the "valid"
             logger.info(
@@ -369,7 +370,7 @@ def perform_extract_action(
                 fo, fieldnames=["id", *(column.name for column in columns)]
             )
             # TODO: sort by id column?
-            writer.writerow(dict(id=email_file.id) | final_json_obj)
+            writer.writerow(dict(id=email_file.id) | row)
     else:
         # TODO: lock file
         output_csv.parent.mkdir(parents=True, exist_ok=True)
@@ -378,7 +379,7 @@ def perform_extract_action(
                 fo, fieldnames=["id", *(column.name for column in columns)]
             )
             writer.writeheader()
-            writer.writerow(dict(id=email_file.id) | final_json_obj)
+            writer.writerow(dict(id=email_file.id) | row)
 
 
 def perform_ignore_action(
