@@ -4,7 +4,6 @@ import logging
 import os
 import pathlib
 import re
-import textwrap
 import typing
 import uuid
 
@@ -42,6 +41,31 @@ logger = logging.getLogger(__name__)
 BEANHUB_INBOX_DOMAINS = frozenset(
     ["inbox.beanhub.io", "stage-inbox.beanhub.io", "dev-inbox.beanhub.io"]
 )
+DEFAULT_PROMPT_INSTRUCTION = """\
+Extract value from the following email content and output to an object with only one field `{{ column.name }}` in JSON.
+Think step by step.
+"""
+DEFAULT_PROMPT_TEMPLATE = """\
+# Instruction
+
+{{ instruction }}
+
+# JSON value definition
+
+{{ column.description }}.
+{%- if not column.required %}
+Output null value if the value is not available.
+{%- endif %}
+{%- if column.pattern %}
+Ensure the value match regular expression `{{ column.pattern }}`
+{%- endif %}
+
+# Email content
+
+```
+{{ content }}
+```
+"""
 
 
 @dataclasses.dataclass(frozen=True)
@@ -224,7 +248,7 @@ def perform_extract_action(
     action: ExtractImportAction,
 ):
     # TODO: take from param
-    debug_dump_folder = pathlib.Path.cwd() / "debug"
+    debug_dump_folder = pathlib.Path.cwd() / ".debug"
     debug_dump_folder.mkdir(exist_ok=True)
 
     output_csv = pathlib.Path(action.extract.output_csv)
@@ -258,28 +282,9 @@ def perform_extract_action(
         )
 
     # TODO: get template from action or default value
-    template = textwrap.dedent("""\
-    # Instruction
-
-    Extract value from the following email content and output to an object with only one field `{{ column.name }}` in JSON.
-    Think step by step.
-
-    # JSON value definition
-
-    {{ column.description }}.
-    {%- if not column.required %}
-    Output null value if the value is not available.
-    {%- endif %}
-    {%- if column.pattern %}
-    Ensure the value match regular expression `{{ column.pattern }}`
-    {%- endif %}
-
-    # Email content
-
-    ```
-    {{ content }}
-    ```
-    """)
+    template = DEFAULT_PROMPT_TEMPLATE
+    if action.extract.template is not None:
+        template = action.extract.template
 
     final_json_obj = {}
     columns = DEFAULT_COLUMNS
@@ -295,10 +300,17 @@ def perform_extract_action(
             output_columns=[column],
         )
 
+        instruction = DEFAULT_PROMPT_INSTRUCTION
+        if action.extract.instruction is not None:
+            instruction = action.extract.instruction
+        instruction = template_env.from_string(instruction).render(
+            column=column,
+        )
         prompt = template_env.from_string(template).render(
             json_schema=response_model_cls.model_json_schema(),
             content=text,
             column=column,
+            instruction=instruction,
         )
         if debug_dump_folder is not None:
             (

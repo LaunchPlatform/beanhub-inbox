@@ -83,9 +83,8 @@ class OutputColumn(InboxBaseModel):
 
 class ExtractConfig(InboxBaseModel):
     output_csv: str
-    prompt: str | None = None
-    output_columns: list[OutputColumn] | None = None
-    output_folders: dict[str, str] | None = None
+    template: str | None = None
+    instruction: str | None = None
 
 
 class ExtractImportAction(InboxBaseModel):
