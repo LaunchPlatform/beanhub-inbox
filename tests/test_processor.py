@@ -374,30 +374,52 @@ def test_extract_received_for_email(header_value: str, expected: str | None):
     [
         pytest.param(
             textwrap.dedent("""\
-        ```json
-        {}
-        ```
-        """),
+            ```json
+            {}
+            ```
+            """),
             [{}],
             id="json-lang-emtpy-dict",
         ),
         pytest.param(
             textwrap.dedent("""\
-    ```
-    {}
-    ```
-    """),
+            ```
+            {}
+            ```
+            """),
             [{}],
             id="no-lang-emtpy-dict",
         ),
         pytest.param(
             textwrap.dedent("""\
-    ```json
-    {"key": "value"}
-    ```
-    """),
+            ```json
+            {"key": "value"}
+            ```
+            """),
             [{"key": "value"}],
             id="json-lang-dict",
+        ),
+        pytest.param(
+            textwrap.dedent("""\
+            # Section 1
+            
+            ```json
+            {"key0": "value0"}
+            ```
+            
+            # Section 2
+            
+            ```
+            {"key1": "value1"}
+            ```
+            
+            # Section 3
+            
+            ```{}```
+            
+            """),
+            [{"key0": "value0"}, {"key1": "value1"}, {}],
+            id="multiple",
         ),
     ],
 )

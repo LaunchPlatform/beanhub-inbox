@@ -302,7 +302,7 @@ def match_email_file(match_rule: EmailMatchRule, email_file: EmailFile) -> bool:
 
 
 def extract_json_block(text: str) -> typing.Generator[dict, None, None]:
-    for match in re.findall("```(json\n)?(.+)```", text):
+    for match in re.finditer("```(json\n)?([^`]*)```", text, flags=re.IGNORECASE):
         try:
             yield json.loads(match.group(2))
         except ValueError:
