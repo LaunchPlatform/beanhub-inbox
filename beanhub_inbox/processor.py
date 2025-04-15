@@ -244,15 +244,13 @@ def perform_extract_action(
     email_file: EmailFile,
     parsed_email: fast_mail_parser.PyMail,
     action: ExtractImportAction,
+    llm_model: str,
+    progress_output_folder: pathlib.Path | None = None,
     think_progress_factory: typing.Callable[
         [], typing.ContextManager[typing.Callable[[str], None]]
     ]
     | None = None,
 ):
-    # TODO: take from param
-    debug_dump_folder = pathlib.Path.cwd() / ".debug"
-    debug_dump_folder.mkdir(exist_ok=True)
-
     output_csv = pathlib.Path(action.extract.output_csv)
     if output_csv.exists():
         # TODO: extract this
@@ -305,12 +303,10 @@ def perform_extract_action(
             content=text,
             column=column,
         )
-        if debug_dump_folder is not None:
+        if progress_output_folder is not None:
             (
-                debug_dump_folder / f"{email_file.id}-{column.name}-prompt.txt"
+                progress_output_folder / f"{email_file.id}-{column.name}-prompt.txt"
             ).write_text(prompt)
-        # TODO: read this from config instead
-        model_name = "deepcoder"
         logger.debug(
             "Extracting data for email %s with prompt:\n%s",
             email_file.id,
@@ -320,7 +316,7 @@ def perform_extract_action(
         messages = [ollama.Message(role="user", content=prompt)]
 
         think_generator = GeneratorResult(
-            think(model=model_name, messages=messages, stream=True)
+            think(model=llm_model, messages=messages, stream=True)
         )
         think_progress_ctx = contextlib.nullcontext()
         if think_progress_factory is not None:
@@ -331,13 +327,13 @@ def perform_extract_action(
                     progress(part.message.content)
 
         messages.append(think_generator.value)
-        if debug_dump_folder is not None:
+        if progress_output_folder is not None:
             (
-                debug_dump_folder / f"{email_file.id}-{column.name}-thinking.txt"
+                progress_output_folder / f"{email_file.id}-{column.name}-thinking.txt"
             ).write_text(think_generator.value.content)
 
         result = extract(
-            model=model_name,
+            model=llm_model,
             messages=messages,
             response_model_cls=response_model_cls,
         )
@@ -362,7 +358,7 @@ def perform_extract_action(
     )
     if output_csv.exists():
         # TODO: lock file
-        with output_csv.open("at+") as fo:
+        with output_csv.open("at+", newline="") as fo:
             writer = csv.DictWriter(
                 fo, fieldnames=["id", *(column.name for column in columns)]
             )
@@ -371,7 +367,7 @@ def perform_extract_action(
     else:
         # TODO: lock file
         output_csv.parent.mkdir(parents=True, exist_ok=True)
-        with output_csv.open("wt") as fo:
+        with output_csv.open("wt", newline="") as fo:
             writer = csv.DictWriter(
                 fo, fieldnames=["id", *(column.name for column in columns)]
             )
@@ -382,6 +378,8 @@ def perform_extract_action(
 def process_imports(
     inbox_doc: InboxDoc,
     input_dir: pathlib.Path,
+    llm_model: str,
+    progress_output_folder: pathlib.Path | None = None,
     think_progress_factory: typing.Callable[
         [], typing.ContextManager[typing.Callable[[str], None]]
     ]
@@ -406,7 +404,12 @@ def process_imports(
             rel_filepath = filepath.relative_to(input_dir)
             parsed_email = parse_email(filepath.read_bytes())
             email_file = build_email_file(filepath=rel_filepath, email=parsed_email)
-            logger.info("Processing email %s at %s", email_file.id, email_file.filepath)
+            logger.info(
+                "Processing email %s (%s) at %s",
+                email_file.id,
+                email_file.subject,
+                email_file.filepath,
+            )
 
             matched_import_config = None
             matched_import_config_index = None
@@ -441,6 +444,8 @@ def process_imports(
                         email_file=email_file,
                         parsed_email=parsed_email,
                         action=action,
+                        llm_model=llm_model,
+                        progress_output_folder=progress_output_folder,
                         think_progress_factory=think_progress_factory,
                     )
                 elif isinstance(action, IgnoreImportAction):
