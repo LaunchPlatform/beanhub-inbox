@@ -1,6 +1,7 @@
 import contextlib
 import csv
 import dataclasses
+import json
 import logging
 import os
 import pathlib
@@ -19,7 +20,7 @@ from .data_types import EmailMatchRule
 from .data_types import ExtractImportAction
 from .data_types import IgnoreImportAction
 from .data_types import IgnoreInboxAction
-from .data_types import ImportAction
+from .data_types import ImportConfig
 from .data_types import InboxAction
 from .data_types import InboxActionType
 from .data_types import InboxConfig
@@ -27,6 +28,7 @@ from .data_types import InboxDoc
 from .data_types import InboxEmail
 from .data_types import InboxMatch
 from .data_types import InputConfig
+from .data_types import OutputColumn
 from .data_types import SimpleFileMatch
 from .data_types import StrExactMatch
 from .data_types import StrRegexMatch
@@ -80,6 +82,66 @@ class EmailFile:
     recipients: list[str]
     headers: dict[str, str]
     tags: list[str]
+
+
+@dataclasses.dataclass(frozen=True)
+class ProcessImportEvent:
+    email_file: EmailFile
+
+
+@dataclasses.dataclass(frozen=True)
+class StartProcessingEmail(ProcessImportEvent):
+    pass
+
+
+@dataclasses.dataclass(frozen=True)
+class NoMatch(ProcessImportEvent):
+    pass
+
+
+@dataclasses.dataclass(frozen=True)
+class MatchImportRule(ProcessImportEvent):
+    import_rule_index: int
+    import_config: ImportConfig
+
+
+@dataclasses.dataclass(frozen=True)
+class IgnoreEmail(ProcessImportEvent):
+    pass
+
+
+@dataclasses.dataclass(frozen=True)
+class CSVRowExists(ProcessImportEvent):
+    pass
+
+
+@dataclasses.dataclass(frozen=True)
+class StartExtractingColumn(ProcessImportEvent):
+    column: OutputColumn
+
+
+@dataclasses.dataclass(frozen=True)
+class StartThinking(ProcessImportEvent):
+    column: OutputColumn
+    prompt: str
+
+
+@dataclasses.dataclass(frozen=True)
+class UpdateThinking(ProcessImportEvent):
+    column: OutputColumn
+    piece: str
+
+
+@dataclasses.dataclass(frozen=True)
+class FinishThinking(ProcessImportEvent):
+    column: OutputColumn
+    thinking: str
+
+
+@dataclasses.dataclass(frozen=True)
+class FinishExtractingColumn(ProcessImportEvent):
+    column: OutputColumn
+    value: typing.Any
 
 
 def match_inbox_email(email: InboxEmail, match: InboxMatch) -> bool:
@@ -239,6 +301,14 @@ def match_email_file(match_rule: EmailMatchRule, email_file: EmailFile) -> bool:
     return True
 
 
+def extract_json_block(text: str) -> typing.Generator[dict, None, None]:
+    for match in re.findall("```(json\n)?(.+)```", text):
+        try:
+            yield json.loads(match.group(2))
+        except ValueError:
+            continue
+
+
 def perform_extract_action(
     template_env: SandboxedEnvironment,
     email_file: EmailFile,
@@ -250,7 +320,7 @@ def perform_extract_action(
         [], typing.ContextManager[typing.Callable[[str], None]]
     ]
     | None = None,
-):
+) -> typing.Generator[ProcessImportEvent, None, None]:
     output_csv = pathlib.Path(action.extract.output_csv)
     if output_csv.exists():
         # TODO: extract this
@@ -269,6 +339,7 @@ def perform_extract_action(
                         index + 1,
                         output_csv,
                     )
+                    yield CSVRowExists(email_file=email_file)
                     return
 
     if parsed_email.text_html:
@@ -294,6 +365,7 @@ def perform_extract_action(
             column.name,
             column.type.value,
         )
+        yield StartExtractingColumn(email_file=email_file, column=column)
         response_model_cls = build_row_model(
             output_columns=[column],
         )
@@ -303,34 +375,23 @@ def perform_extract_action(
             content=text,
             column=column,
         )
-        if progress_output_folder is not None:
-            (
-                progress_output_folder / f"{email_file.id}-{column.name}-prompt.txt"
-            ).write_text(prompt)
         logger.debug(
-            "Extracting data for email %s with prompt:\n%s",
+            "Thinking about extracting data for email %s with prompt:\n%s",
             email_file.id,
             prompt,
         )
-
         messages = [ollama.Message(role="user", content=prompt)]
-
+        yield StartThinking(email_file=email_file, column=column, prompt=prompt)
         think_generator = GeneratorResult(
             think(model=llm_model, messages=messages, stream=True)
         )
-        think_progress_ctx = contextlib.nullcontext()
-        if think_progress_factory is not None:
-            think_progress_ctx = think_progress_factory()
-        with think_progress_ctx as progress:
-            for part in think_generator:
-                if progress is not None:
-                    progress(part.message.content)
-
-        messages.append(think_generator.value)
-        if progress_output_folder is not None:
-            (
-                progress_output_folder / f"{email_file.id}-{column.name}-thinking.txt"
-            ).write_text(think_generator.value.content)
+        for part in think_generator:
+            yield UpdateThinking(
+                email_file=email_file, column=column, piece=part.message.content
+            )
+        yield FinishThinking(
+            email_file=email_file, column=column, thinking=think_generator.value.content
+        )
 
         result = extract(
             model=llm_model,
@@ -384,7 +445,7 @@ def process_imports(
         [], typing.ContextManager[typing.Callable[[str], None]]
     ]
     | None = None,
-):
+) -> typing.Generator[ProcessImportEvent, None, None]:
     template_env = make_environment()
     omit_token = uuid.uuid4().hex
 
@@ -395,63 +456,71 @@ def process_imports(
     )
 
     # sort filepaths for deterministic behavior across platforms
+    # TODO: this might be a bit slow if the input dir has a tons of files...
     filepaths = sorted(walk_dir_files(input_dir))
     for filepath in filepaths:
-        for rendered_input_config in expanded_input_configs:
+        matched_input_config = None
+        for input_config_index, rendered_input_config in enumerate(
+            expanded_input_configs
+        ):
             input_config = rendered_input_config.input_config
-            if not match_file(input_config.match, filepath):
-                continue
-            rel_filepath = filepath.relative_to(input_dir)
-            parsed_email = parse_email(filepath.read_bytes())
-            email_file = build_email_file(filepath=rel_filepath, email=parsed_email)
+            if match_file(input_config.match, filepath):
+                matched_input_config = input_config
+                logger.info("Matched input config %s", input_config_index)
+                break
+        if matched_input_config is None:
+            # Not interested in this file, skip
+            continue
+
+        rel_filepath = filepath.relative_to(input_dir)
+        parsed_email = parse_email(filepath.read_bytes())
+        email_file = build_email_file(filepath=rel_filepath, email=parsed_email)
+        yield StartProcessingEmail(email_file=email_file)
+
+        matched_import_config = None
+        matched_import_config_index = None
+        for index, import_config in enumerate(inbox_doc.imports):
+            if import_config.match is None or match_email_file(
+                import_config.match, email_file
+            ):
+                matched_import_config = import_config
+                matched_import_config_index = index
+                break
+        if matched_import_config is None:
             logger.info(
-                "Processing email %s (%s) at %s",
+                "No import rule match for email %s at %s, skip",
                 email_file.id,
-                email_file.subject,
                 email_file.filepath,
             )
+            yield NoMatch(email_file=email_file)
+            continue
 
-            matched_import_config = None
-            matched_import_config_index = None
-            for index, import_config in enumerate(inbox_doc.imports):
-                if import_config.match is None or match_email_file(
-                    import_config.match, email_file
-                ):
-                    matched_import_config = import_config
-                    matched_import_config_index = index
-                    break
-
-            if matched_import_config is None:
-                logger.info(
-                    "No import rule match for email %s at %s, skip",
-                    email_file.id,
-                    email_file.filepath,
+        logger.info(
+            "Match email %s at %s with import rule %s",
+            email_file.id,
+            email_file.filepath,
+            matched_import_config.name
+            if matched_import_config.name is not None
+            else matched_import_config_index,
+        )
+        yield MatchImportRule(
+            email_file=email_file,
+            import_rule_index=matched_import_config_index,
+            import_config=matched_import_config,
+        )
+        for action in matched_import_config.actions:
+            if isinstance(action, ExtractImportAction):
+                yield from perform_extract_action(
+                    template_env=template_env,
+                    email_file=email_file,
+                    parsed_email=parsed_email,
+                    action=action,
+                    llm_model=llm_model,
+                    progress_output_folder=progress_output_folder,
+                    think_progress_factory=think_progress_factory,
                 )
-                continue
-
-            logger.info(
-                "Match email %s at %s with import rule %s",
-                email_file.id,
-                email_file.filepath,
-                matched_import_config.name
-                if matched_import_config.name is not None
-                else matched_import_config_index,
-            )
-            for action in matched_import_config.actions:
-                if isinstance(action, ExtractImportAction):
-                    perform_extract_action(
-                        template_env=template_env,
-                        email_file=email_file,
-                        parsed_email=parsed_email,
-                        action=action,
-                        llm_model=llm_model,
-                        progress_output_folder=progress_output_folder,
-                        think_progress_factory=think_progress_factory,
-                    )
-                elif isinstance(action, IgnoreImportAction):
-                    logger.info("Ignore email %s", email_file.id)
-                else:
-                    raise ValueError(f"Unexpected action type {type(action)}")
-
-            # XXX:
-            yield None
+            elif isinstance(action, IgnoreImportAction):
+                logger.info("Ignore email %s", email_file.id)
+                yield IgnoreEmail(email_file=email_file)
+            else:
+                raise ValueError(f"Unexpected action type {type(action)}")

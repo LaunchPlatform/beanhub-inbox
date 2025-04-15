@@ -18,6 +18,7 @@ from beanhub_inbox.data_types import SimpleFileMatch
 from beanhub_inbox.data_types import StrExactMatch
 from beanhub_inbox.data_types import StrRegexMatch
 from beanhub_inbox.processor import extract_html_text
+from beanhub_inbox.processor import extract_json_block
 from beanhub_inbox.processor import extract_received_for_email
 from beanhub_inbox.processor import match_file
 from beanhub_inbox.processor import match_inbox_email
@@ -366,6 +367,42 @@ def test_parse_yaml(fixtures_folder: pathlib.Path, filename: str):
 )
 def test_extract_received_for_email(header_value: str, expected: str | None):
     assert extract_received_for_email(header_value) == expected
+
+
+@pytest.mark.parametrize(
+    "text, expected",
+    [
+        pytest.param(
+            textwrap.dedent("""\
+        ```json
+        {}
+        ```
+        """),
+            [{}],
+            id="json-lang-emtpy-dict",
+        ),
+        pytest.param(
+            textwrap.dedent("""\
+    ```
+    {}
+    ```
+    """),
+            [{}],
+            id="no-lang-emtpy-dict",
+        ),
+        pytest.param(
+            textwrap.dedent("""\
+    ```json
+    {"key": "value"}
+    ```
+    """),
+            [{"key": "value"}],
+            id="json-lang-dict",
+        ),
+    ],
+)
+def test_extract_json_block(text: str, expected: list[dict]):
+    assert list(extract_json_block(text)) == expected
 
 
 @pytest.mark.parametrize(
