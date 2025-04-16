@@ -144,6 +144,11 @@ class FinishExtractingColumn(ProcessImportEvent):
     value: typing.Any
 
 
+@dataclasses.dataclass(frozen=True)
+class FinishExtractingRow(ProcessImportEvent):
+    row: dict
+
+
 def match_inbox_email(email: InboxEmail, match: InboxMatch) -> bool:
     if match.tags is not None:
         if email.tags is None:
@@ -393,17 +398,41 @@ def perform_extract_action(
             email_file=email_file, column=column, thinking=think_generator.value.content
         )
 
-        result = extract(
-            model=llm_model,
-            messages=messages,
-            response_model_cls=response_model_cls,
+        extracted_value = None
+        code_block_json_objs = list(extract_json_block(think_generator.value.content))
+        for block_json_obj in code_block_json_objs[::-1]:
+            if column.name in block_json_obj:
+                extracted_value = block_json_obj[column.name]
+                logger.info(
+                    'Extracted "%s" value %r from thinking output',
+                    column.name,
+                    extracted_value,
+                )
+                break
+
+        if extracted_value is None:
+            result = extract(
+                model=llm_model,
+                messages=messages,
+                response_model_cls=response_model_cls,
+            )
+
+            json_obj = result.model_dump(mode="json")
+            extracted_value = json_obj.get(column.name)
+            logger.info(
+                'Extracted "%s" value %r with structured output',
+                column.name,
+                extracted_value,
+            )
+
+        yield FinishExtractingColumn(
+            email_file=email_file,
+            column=column,
+            value=extracted_value,
         )
 
-        json_obj = result.model_dump(mode="json")
-        logger.info('Extracted "%s" value %r', column.name, json_obj.get(column.name))
-
-        row.update(json_obj)
-        if column.name == "valid" and not json_obj["valid"]:
+        row[column.name] = extracted_value
+        if column.name == "valid" and not extracted_value:
             # TODO: find a way to make it possible to define which column is the "valid"
             logger.info(
                 "Email %s is not a valid one, skip all other columns",
@@ -416,6 +445,10 @@ def perform_extract_action(
         email_file.id,
         row,
         output_csv,
+    )
+    yield FinishExtractingRow(
+        email_file=email_file,
+        row=row,
     )
     if output_csv.exists():
         # TODO: lock file
