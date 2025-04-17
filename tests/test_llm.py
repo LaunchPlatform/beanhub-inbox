@@ -1,11 +1,12 @@
 import datetime
-import enum
+import json
 import logging
 import typing
 
 import ollama
 import pydantic
 import pytest
+from pytest_mock import MockFixture
 
 from beanhub_inbox.data_types import OutputColumn
 from beanhub_inbox.data_types import OutputColumnType
@@ -191,7 +192,15 @@ def test_build_row_model(
         ("deepcoder", "What is the result of 1 + 1?", "</think>"),
     ],
 )
-def test_think(model: str, prompt: str, end_token: str):
+def test_think(mocker: MockFixture, model: str, prompt: str, end_token: str):
+    mock_chat = mocker.patch.object(ollama, "chat")
+    mock_chat.return_value = ollama.ChatResponse(
+        message=ollama.Message(
+            role="assistant",
+            content="<think>The result of 1 + 1 is 2</think> The result is 2",
+        )
+    )
+
     think_msg = think(
         model=model,
         messages=[ollama.Message(role="user", content=prompt)],
@@ -210,7 +219,31 @@ def test_think(model: str, prompt: str, end_token: str):
         ("deepcoder", "What is the result of 1 + 1?", "</think>"),
     ],
 )
-def test_think_stream(model: str, prompt: str, end_token: str):
+def test_think_stream(mocker: MockFixture, model: str, prompt: str, end_token: str):
+    def generate_result():
+        for chunk in [
+            "<think>",
+            "The",
+            " result",
+            " of",
+            " 1",
+            " +",
+            " 1",
+            " is",
+            " 2",
+            "</think>",
+            " The",
+            " result",
+            " is",
+            " 2",
+        ]:
+            yield ollama.ChatResponse(
+                message=ollama.Message(role="assistant", content=chunk)
+            )
+
+    mock_chat = mocker.patch.object(ollama, "chat")
+    mock_chat.return_value = generate_result()
+
     chunks: list[str] = []
     think_generator = GeneratorResult(
         think(
@@ -244,7 +277,26 @@ def test_think_stream(model: str, prompt: str, end_token: str):
         ),
     ],
 )
-def test_extract(model: str, prompt: str, end_token: str, expected: int):
+def test_extract(
+    mocker: MockFixture, model: str, prompt: str, end_token: str, expected: int
+):
+    def generate_result():
+        for chunk in json.dumps(dict(value=2)):
+            yield ollama.ChatResponse(
+                message=ollama.Message(role="assistant", content=chunk)
+            )
+
+    mock_chat = mocker.patch.object(ollama, "chat")
+    mock_chat.side_effect = [
+        ollama.ChatResponse(
+            message=ollama.Message(
+                role="assistant",
+                content="<think>The result of 1 + 1 is 2</think> The result is 2",
+            )
+        ),
+        generate_result(),
+    ]
+
     messages = [ollama.Message(role="user", content=prompt)]
     think_message = think(model=model, messages=messages, end_token=end_token)
     messages.append(think_message)

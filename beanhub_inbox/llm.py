@@ -1,10 +1,8 @@
 import datetime
-import enum
 import typing
 
 import ollama
 import pydantic
-from ollama import chat
 
 from .data_types import OutputColumn
 from .data_types import OutputColumnType
@@ -104,7 +102,9 @@ def _stream_think(
     options: dict | None = None,
 ) -> typing.Generator[ollama.ChatResponse, None, ollama.Message]:
     chunks: list[str] = []
-    for part in chat(model=model, messages=messages, options=options, stream=True):
+    for part in ollama.chat(
+        model=model, messages=messages, options=options, stream=True
+    ):
         msg_content = part["message"]["content"]
         yield part
         chunks.append(msg_content)
@@ -126,7 +126,7 @@ def think(
         return _stream_think(
             model=model, messages=messages, options=options, end_token=end_token
         )
-    resp = chat(model=model, messages=messages, options=options)
+    resp = ollama.chat(model=model, messages=messages, options=options)
     if end_token is not None:
         resp.message.content = resp.message.content.split(end_token, 1)[0] + end_token
     return resp.message
@@ -143,7 +143,7 @@ def extract(
 ) -> T:
     if options is None:
         options = LLM_DEFAULT_OPTIONS
-    response = chat(
+    response = ollama.chat(
         model=model,
         messages=messages,
         options=options,
@@ -153,7 +153,7 @@ def extract(
 
     chunks = []
     for part in response:
-        msg_content = part["message"]["content"]
+        msg_content = part.message.content
         chunks.append(msg_content)
 
     return response_model_cls.model_validate_json("".join(chunks))
