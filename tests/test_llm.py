@@ -1,6 +1,5 @@
 import datetime
 import enum
-import json
 import logging
 import textwrap
 import typing
@@ -16,7 +15,6 @@ from beanhub_inbox.llm import build_column_field
 from beanhub_inbox.llm import build_response_model
 from beanhub_inbox.llm import build_row_model
 from beanhub_inbox.llm import DECIMAL_REGEX
-from beanhub_inbox.llm import DEDUCTION_DEFAULT_OPTIONS
 from beanhub_inbox.llm import DEFAULT_COLUMNS
 from beanhub_inbox.llm import extract
 from beanhub_inbox.llm import LLMResponseBaseModel

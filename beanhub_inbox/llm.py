@@ -11,7 +11,7 @@ from .data_types import OutputColumnType
 
 
 DECIMAL_REGEX = "^-?(0|[1-9][0-9]*)(\\.[0-9]+)?$"
-DEDUCTION_DEFAULT_OPTIONS = dict(temperature=0)
+LLM_DEFAULT_OPTIONS = dict(temperature=0)
 DEFAULT_COLUMNS: list[OutputColumn] = [
     OutputColumn(
         name="valid",
@@ -184,7 +184,7 @@ def think(
     stream: bool = False,
 ) -> typing.Generator[ollama.ChatResponse, None, ollama.Message] | ollama.Message:
     if options is None:
-        options = DEDUCTION_DEFAULT_OPTIONS
+        options = LLM_DEFAULT_OPTIONS
     if stream:
         return _stream_think(
             model=model, messages=messages, options=options, end_token=end_token
@@ -205,7 +205,7 @@ def extract(
     options: dict | None = None,
 ) -> T:
     if options is None:
-        options = DEDUCTION_DEFAULT_OPTIONS
+        options = LLM_DEFAULT_OPTIONS
     response = chat(
         model=model,
         messages=messages,
