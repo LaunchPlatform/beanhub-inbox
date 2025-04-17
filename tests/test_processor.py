@@ -1,9 +1,11 @@
 import pathlib
 import textwrap
 
+import ollama
 import pytest
 import yaml
 from jinja2.sandbox import SandboxedEnvironment
+from pytest_mock import MockerFixture
 
 from .factories import InboxEmailFactory
 from beanhub_inbox.data_types import ArchiveInboxAction
@@ -434,15 +436,23 @@ def test_extract_json_block(text: str, expected: list[dict]):
     ],
 )
 def test_process_imports(
+    mocker: MockerFixture,
     fixtures_folder: pathlib.Path,
     folder: str,
     expected: list,
 ):
+    # mock_chat = mocker.patch.object(ollama, "chat")
+
     folder_path = fixtures_folder / "processor" / folder
     with open(folder_path / "inbox.yaml", "rt") as fo:
         payload = yaml.safe_load(fo)
     doc = InboxDoc.model_validate(payload)
-    assert list(process_imports(inbox_doc=doc, input_dir=folder_path)) == expected
+    assert (
+        list(
+            process_imports(inbox_doc=doc, input_dir=folder_path, llm_model="deepcoder")
+        )
+        == expected
+    )
 
 
 @pytest.mark.parametrize(
