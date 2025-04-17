@@ -311,27 +311,27 @@ def test_extract(model: str, prompt: str, end_token: str, expected: int):
 @pytest.mark.parametrize(
     "columns, output_folders, attachment_count, prompt, expected",
     [
-        # pytest.param(
-        #     [
-        #         OutputColumn(
-        #             name="amount",
-        #             type=OutputColumnType.int,
-        #             description="transaction amount",
-        #         ),
-        #     ],
-        #     [],
-        #     0,
-        #     textwrap.dedent("""\
-        #     Extract the following email content and output JSON
-        #
-        #     # Email content
-        #
-        #     Thank you for purchase BeanHub.io, the total amount is $30.00 USD
-        #
-        #     """),
-        #     {"csv_row": {"amount": 30}},
-        #     id="minimal",
-        # ),
+        pytest.param(
+            [
+                OutputColumn(
+                    name="amount",
+                    type=OutputColumnType.int,
+                    description="transaction amount",
+                ),
+            ],
+            [],
+            0,
+            textwrap.dedent("""\
+            Extract the following email content and output JSON
+
+            # Email content
+
+            Thank you for purchase BeanHub.io, the total amount is $30.00 USD
+
+            """),
+            {"csv_row": {"amount": 30}},
+            id="minimal",
+        ),
         pytest.param(
             DEFAULT_COLUMNS,
             [],
@@ -389,7 +389,6 @@ def test_extract_email_values(
         model=model_name,
         prompt=prompt.format(json_schema=response_model_cls.model_json_schema()),
     )
-    print("@" * 20, messages[1].content)
     logger.info("Think content:\n%s", messages[1].content)
 
     result = extract(
