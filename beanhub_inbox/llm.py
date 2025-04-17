@@ -94,70 +94,7 @@ def build_row_model(
     output_columns: list[OutputColumn],
 ) -> typing.Type[LLMResponseBaseModel]:
     fields = map(build_column_field, output_columns)
-    return pydantic.create_model(
-        "FieldValue", **dict(fields), __base__=LLMResponseBaseModel
-    )
-
-
-def build_archive_attachment_model(output_folders: list[str], attachment_count: int):
-    if attachment_count <= 0:
-        raise ValueError(f"Invalid attachment count {attachment_count}")
-    if not output_folders:
-        raise ValueError("The output_folders value cannot be empty")
-    OutputFolder = enum.Enum(
-        "OutputFolder",
-        {output_folder: output_folder for output_folder in output_folders},
-    )
-    return pydantic.create_model(
-        "ArchiveAttachment",
-        attachment_index=typing.Annotated[
-            int,
-            pydantic.Field(
-                ge=1,
-                le=attachment_count,
-                description="The index of email attachment file, starting from 1",
-            ),
-        ],
-        outout_folder=typing.Annotated[
-            OutputFolder,
-            pydantic.Field(
-                description="which folder to archive the email attachment file to"
-            ),
-        ],
-        filename=typing.Annotated[
-            str,
-            pydantic.Field(
-                description="The output filename of email attachment file to write to the output folder"
-            ),
-        ],
-        __base__=LLMResponseBaseModel,
-    )
-
-
-def build_response_model(
-    output_columns: list[OutputColumn],
-    output_folders: list[str],
-    attachment_count: int,
-) -> typing.Type[LLMResponseBaseModel]:
-    kwargs = {}
-    if attachment_count > 0:
-        kwargs["archive_attachments"] = typing.Annotated[
-            list[
-                build_archive_attachment_model(
-                    output_folders=output_folders,
-                    attachment_count=attachment_count,
-                )
-                | None
-            ],
-            pydantic.Field(None),
-        ]
-    return pydantic.create_model(
-        "LLMResponse",
-        # reasoning_steps=typing.Annotated[list[str], pydantic.Field(description="Reasoning steps")],
-        csv_row=build_row_model(output_columns=output_columns),
-        **kwargs,
-        __base__=LLMResponseBaseModel,
-    )
+    return pydantic.create_model("Row", **dict(fields), __base__=LLMResponseBaseModel)
 
 
 def _stream_think(

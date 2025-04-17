@@ -1,7 +1,6 @@
 import datetime
 import enum
 import logging
-import textwrap
 import typing
 
 import ollama
@@ -10,12 +9,9 @@ import pytest
 
 from beanhub_inbox.data_types import OutputColumn
 from beanhub_inbox.data_types import OutputColumnType
-from beanhub_inbox.llm import build_archive_attachment_model
 from beanhub_inbox.llm import build_column_field
-from beanhub_inbox.llm import build_response_model
 from beanhub_inbox.llm import build_row_model
 from beanhub_inbox.llm import DECIMAL_REGEX
-from beanhub_inbox.llm import DEFAULT_COLUMNS
 from beanhub_inbox.llm import extract
 from beanhub_inbox.llm import LLMResponseBaseModel
 from beanhub_inbox.llm import think
@@ -168,7 +164,7 @@ def test_build_column_field(
                 ),
             ],
             pydantic.create_model(
-                "CsvRow",
+                "Row",
                 desc=typing.Annotated[
                     str,
                     pydantic.Field(
@@ -186,50 +182,6 @@ def test_build_row_model(
     output_columns: list[OutputColumn], expected: typing.Type[LLMResponseBaseModel]
 ):
     model = build_row_model(output_columns=output_columns)
-    assert model.model_json_schema() == expected.model_json_schema()
-
-
-@pytest.mark.parametrize(
-    "output_folders, attachment_count, expected",
-    [
-        (
-            ["a", "b", "c"],
-            3,
-            pydantic.create_model(
-                "ArchiveAttachment",
-                attachment_index=typing.Annotated[
-                    int,
-                    pydantic.Field(
-                        ge=0, lt=3, description="The index of email attachment file"
-                    ),
-                ],
-                outout_folder=typing.Annotated[
-                    enum.Enum(
-                        "OutputFolder",
-                        {k: k for k in ["a", "b", "c"]},
-                    ),
-                    pydantic.Field(
-                        description="which folder to archive the email attachment file to"
-                    ),
-                ],
-                filename=typing.Annotated[
-                    str,
-                    pydantic.Field(
-                        description="The output filename of email attachment file to write to the output folder"
-                    ),
-                ],
-            ),
-        ),
-    ],
-)
-def test_build_archive_attachment_model(
-    output_folders: list[str],
-    attachment_count: int,
-    expected: typing.Type[LLMResponseBaseModel],
-):
-    model = build_archive_attachment_model(
-        output_folders=output_folders, attachment_count=attachment_count
-    )
     assert model.model_json_schema() == expected.model_json_schema()
 
 
@@ -304,94 +256,3 @@ def test_extract(model: str, prompt: str, end_token: str, expected: int):
         model=model, messages=messages, response_model_cls=CalculationResult
     )
     assert result.value == 2
-
-
-@pytest.mark.parametrize(
-    "columns, output_folders, attachment_count, prompt, expected",
-    [
-        pytest.param(
-            [
-                OutputColumn(
-                    name="amount",
-                    type=OutputColumnType.int,
-                    description="transaction amount",
-                ),
-            ],
-            [],
-            0,
-            textwrap.dedent("""\
-            Extract the following email content and output JSON
-
-            # Email content
-
-            Thank you for purchase BeanHub.io, the total amount is $30.00 USD
-
-            """),
-            {"csv_row": {"amount": 30}},
-            id="minimal",
-        ),
-        pytest.param(
-            DEFAULT_COLUMNS,
-            [],
-            0,
-            textwrap.dedent("""\
-            # Instruction
-            
-            Extract the following email content and output JSON with the provided JSON schema.
-            
-            # JSON Schema
-            
-            {json_schema}
-
-            # Email content
-            From: BeanHub <noreply@beanhub.io>
-            To: user+repo@inbox.beanhub.io
-            Subject: Your BeanHub Pro subscription receipt
-
-            Thank you for purchase BeanHub Pro, the total amount is $29.99 USD.
-            The transaction id is: 7ffa4dbf-3f51-4c23-a85b-edd837db29ee
-            The tax amount is $1.23 USD.
-            The payment is processed on April 12, 2025.
-            
-            BeanHub Team.
-
-            """),
-            {
-                "csv_row": {
-                    "amount": "29.99",
-                    "tax": "1.23",
-                    "desc": "BeanHub Pro Subscription",
-                    "merchant": "BeanHub",
-                    "txn_id": "7ffa4dbf-3f51-4c23-a85b-edd837db29ee",
-                    "txn_date": "2025-04-12",
-                }
-            },
-            id="default-columns",
-        ),
-    ],
-)
-def test_extract_email_values(
-    prompt: str,
-    columns: list[OutputColumn],
-    output_folders: list[str],
-    attachment_count: int,
-    expected: dict,
-):
-    model_name = "deepcoder"
-    response_model_cls = build_response_model(
-        output_columns=columns,
-        output_folders=output_folders,
-        attachment_count=attachment_count,
-    )
-    messages = think(
-        model=model_name,
-        prompt=prompt.format(json_schema=response_model_cls.model_json_schema()),
-    )
-    logger.info("Think content:\n%s", messages[1].content)
-
-    result = extract(
-        model=model_name,
-        messages=messages,
-        response_model_cls=response_model_cls,
-    )
-    assert result.model_dump(mode="json") == expected
