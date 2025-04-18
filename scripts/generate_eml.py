@@ -1,9 +1,22 @@
 import mimetypes
 import os
+import pathlib
 import typing
 from email.message import EmailMessage
 
 import click
+
+
+def generate_eml(
+    from_address: str,
+    to_address: str,
+    subject: str,
+) -> EmailMessage:
+    msg = EmailMessage()
+    msg["From"] = from_address
+    msg["To"] = to_address
+    msg["Subject"] = subject
+    return msg
 
 
 @click.command(
@@ -12,23 +25,21 @@ import click
 @click.option("--header", multiple=True, help='Email headers in "Key:Value" format')
 @click.option(
     "--content-file",
-    type=click.Path(exists=True),
-    required=True,
+    type=click.Path(dir_okay=False),
     help="File containing the email body",
 )
 @click.option(
     "--attachment", multiple=True, type=click.Path(exists=True), help="Files to attach"
 )
 @click.argument("output", type=click.Path())
-def generate_eml(
+def main(
     header: typing.Tuple[str, ...],
     content_file: str,
     attachment: typing.Tuple[str, ...],
     output: str,
 ) -> None:
-    # Read content from the specified file
-    with open(content_file, "r", encoding="utf-8") as f:
-        content = f.read()
+    content_path = pathlib.Path(content_file)
+    content = content_path.read_text()
 
     # Create an EmailMessage object
     msg = EmailMessage()
@@ -62,4 +73,19 @@ def generate_eml(
 
 
 if __name__ == "__main__":
-    generate_eml()
+    from tests.factories import EmailFileFactory
+
+    e = EmailFileFactory()
+    msg = e.make_msg()
+    print("@" * 10, msg)
+    # fake = faker.Faker()
+    # msg = generate_eml(
+    #     from_address=fake.email(),
+    #     to_address=fake.email(),
+    #     subject=fake.sentence(),
+    # )
+    # print(msg.as_string())
+    # main()
+    from email.iterators import _structure
+
+    _structure(msg)

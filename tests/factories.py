@@ -96,10 +96,9 @@ def make_email_msg(email_file: EmailFile) -> EmailMessage:
         for attachment in email_file.attachments:
             main_type, sub_type = attachment.mime_type.split("/")
             msg.add_attachment(
-                b"xxx", maintype="application", subtype="pdf", filename="foobar"
+                attachment.content,
+                maintype=main_type,
+                subtype=sub_type,
+                filename=attachment.filename,
             )
-    # for attachment in email_file.attachments:
-    #     msg.add_attachment(
-    #         file_data, maintype=attachment.mime_type, subtype=subtype, filename=file_name
-    #     )
     return msg
