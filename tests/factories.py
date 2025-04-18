@@ -5,7 +5,6 @@ from factory import Dict
 from factory import Factory
 from factory import Faker
 from factory import LazyFunction
-from factory import List
 from factory import SubFactory
 from faker import Faker as OriginalFaker
 
@@ -73,6 +72,9 @@ def make_email_msg(email_file: EmailFile) -> EmailMessage:
     msg["From"] = ", ".join(email_file.from_addresses)
     msg["To"] = ", ".join(email_file.recipients)
     msg["Subject"] = email_file.subject
+    date = email_file.headers.pop("Date")
+    if date is not None:
+        msg["Date"] = date.strftime("%a, %d %b %Y %H:%M:%S %z")
 
     content_parts = []
     if email_file.text is not None:
