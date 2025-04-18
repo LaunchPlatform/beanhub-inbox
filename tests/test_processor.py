@@ -130,6 +130,13 @@ def test_match_str(
         ),
         pytest.param(
             EmailFileFactory(subject="MOCK_SUBJECT"),
+            EmailFileMatchRule(subject="MOCK_(?P<val>.+)"),
+            None,
+            (True, dict(val="SUBJECT")),
+            id="match-subject-regex-capture",
+        ),
+        pytest.param(
+            EmailFileFactory(subject="MOCK_SUBJECT"),
             EmailFileMatchRule(subject=StrExactMatch(equals="OTHER_SUBJECT")),
             None,
             (False, {}),
@@ -141,6 +148,13 @@ def test_match_str(
             None,
             (True, {}),
             id="match-filepath",
+        ),
+        pytest.param(
+            EmailFileFactory(filepath="/path/to/mock.eml"),
+            EmailFileMatchRule(filepath=StrExactMatch(equals="/path/to/other.eml")),
+            None,
+            (False, {}),
+            id="not-match-filepath",
         ),
     ],
 )
