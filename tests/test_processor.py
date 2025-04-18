@@ -462,14 +462,14 @@ def test_extract_json_block(text: str, expected: list[dict]):
                 valid=False,
             ),
             [
-                "StartProcessingEmail",
-                "MatchImportRule",
-                "StartExtractingColumn",
-                "StartThinking",
-                "UpdateThinking",
-                "FinishThinking",
-                "FinishExtractingColumn",
-                "FinishExtractingRow",
+                ("StartProcessingEmail", lambda e: e.email_file.id == "mock"),
+                ("MatchImportRule", lambda e: e.email_file.id == "mock"),
+                ("StartExtractingColumn", lambda e: e.email_file.id == "mock"),
+                ("StartThinking", lambda e: e.email_file.id == "mock"),
+                ("UpdateThinking", lambda e: e.email_file.id == "mock"),
+                ("FinishThinking", lambda e: e.email_file.id == "mock"),
+                ("FinishExtractingColumn", lambda e: e.email_file.id == "mock"),
+                ("FinishExtractingRow", lambda e: e.email_file.id == "mock"),
             ],
         ),
     ],
@@ -508,7 +508,12 @@ def test_process_imports(
         )
     )
     event_types = list(map(lambda event: event.__class__.__name__, events))
-    assert event_types == expected
+    assert event_types == list(map(lambda item: item[0], expected))
+    for event, expected_item in zip(events, expected):
+        _, validator = expected_item
+        if validator is None:
+            continue
+        assert validator(event)
 
 
 @pytest.mark.parametrize(
