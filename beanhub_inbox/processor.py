@@ -1,6 +1,7 @@
 import csv
 import dataclasses
-import email
+import email.message
+import email.policy
 import json
 import logging
 import os
