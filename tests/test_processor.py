@@ -305,7 +305,7 @@ def test_match_email_file(
     ],
 )
 def test_match_inbox_email(email: InboxEmail, match: InboxMatch, expected: bool):
-    assert match_inbox_email(email=email, match=match) == expected
+    assert match_inbox_email(inbox_email=email, match=match) == expected
 
 
 @pytest.mark.parametrize(
@@ -406,7 +406,7 @@ def test_process_inbox_email(
 ):
     assert (
         process_inbox_email(
-            template_env=template_env, email=email, inbox_configs=inbox_configs
+            template_env=template_env, inbox_email=email, inbox_configs=inbox_configs
         )
         == expected
     )
