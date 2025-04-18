@@ -31,6 +31,42 @@ class EmailFile:
     html: EmailAttachment | None = None
     attachments: list[EmailAttachment] | None = None
 
+    def make_msg(self) -> EmailMessage:
+        msg = EmailMessage()
+        msg["From"] = ", ".join(self.from_addresses)
+        msg["To"] = ", ".join(self.recipients)
+        msg["Subject"] = self.subject
+        date = self.headers.pop("Date")
+        if date is not None:
+            msg["Date"] = date.strftime("%a, %d %b %Y %H:%M:%S %z")
+
+        content_parts = []
+        if self.text is not None:
+            content_parts.append(self.text)
+        if self.html is not None:
+            content_parts.append(self.html)
+        if not content_parts:
+            raise ValueError("Need to set at least one of text or html")
+
+        for i, part in enumerate(content_parts):
+            if i == 0:
+                method = msg.set_content
+            else:
+                method = msg.add_alternative
+            main_type, sub_type = part.mime_type.split("/")
+            method(part.content, maintype=main_type, subtype=sub_type)
+
+        if self.attachments is not None:
+            for attachment in self.attachments:
+                main_type, sub_type = attachment.mime_type.split("/")
+                msg.add_attachment(
+                    attachment.content,
+                    maintype=main_type,
+                    subtype=sub_type,
+                    filename=attachment.filename,
+                )
+        return msg
+
 
 class InboxEmailFactory(Factory):
     id = Faker("uuid4")
@@ -65,40 +101,3 @@ class EmailFileFactory(Factory):
 
     class Meta:
         model = EmailFile
-
-
-def make_email_msg(email_file: EmailFile) -> EmailMessage:
-    msg = EmailMessage()
-    msg["From"] = ", ".join(email_file.from_addresses)
-    msg["To"] = ", ".join(email_file.recipients)
-    msg["Subject"] = email_file.subject
-    date = email_file.headers.pop("Date")
-    if date is not None:
-        msg["Date"] = date.strftime("%a, %d %b %Y %H:%M:%S %z")
-
-    content_parts = []
-    if email_file.text is not None:
-        content_parts.append(email_file.text)
-    if email_file.html is not None:
-        content_parts.append(email_file.html)
-    if not content_parts:
-        raise ValueError("Need to set at least one of text or html")
-
-    for i, part in enumerate(content_parts):
-        if i == 0:
-            method = msg.set_content
-        else:
-            method = msg.add_alternative
-        main_type, sub_type = part.mime_type.split("/")
-        method(part.content, maintype=main_type, subtype=sub_type)
-
-    if email_file.attachments is not None:
-        for attachment in email_file.attachments:
-            main_type, sub_type = attachment.mime_type.split("/")
-            msg.add_attachment(
-                attachment.content,
-                maintype=main_type,
-                subtype=sub_type,
-                filename=attachment.filename,
-            )
-    return msg

@@ -320,11 +320,6 @@ def perform_extract_action(
     parsed_email: fast_mail_parser.PyMail,
     action: ExtractImportAction,
     llm_model: str,
-    progress_output_folder: pathlib.Path | None = None,
-    think_progress_factory: typing.Callable[
-        [], typing.ContextManager[typing.Callable[[str], None]]
-    ]
-    | None = None,
 ) -> typing.Generator[ProcessImportEvent, None, None]:
     output_csv = pathlib.Path(action.extract.output_csv)
     if output_csv.exists():
@@ -474,10 +469,6 @@ def process_imports(
     input_dir: pathlib.Path,
     llm_model: str,
     progress_output_folder: pathlib.Path | None = None,
-    think_progress_factory: typing.Callable[
-        [], typing.ContextManager[typing.Callable[[str], None]]
-    ]
-    | None = None,
 ) -> typing.Generator[ProcessImportEvent, None, None]:
     template_env = make_environment()
     omit_token = uuid.uuid4().hex
@@ -550,7 +541,6 @@ def process_imports(
                     action=action,
                     llm_model=llm_model,
                     progress_output_folder=progress_output_folder,
-                    think_progress_factory=think_progress_factory,
                 )
             elif isinstance(action, IgnoreImportAction):
                 logger.info("Ignore email %s", email_file.id)
