@@ -8,3 +8,17 @@ inbox:
         - spam
     action:
       type: ignore
+
+inputs:
+  - match: "inbox-data/{{ match_path }}"
+    loop:
+    - match_path: "default/*.eml"
+    - match_path: "github/*.eml"
+    - match_path: "beanhub/*.eml"
+
+imports:
+  - match:
+      subject: GitHub (.+)
+    actions:
+    - extract:
+        output_csv: "output.csv"
