@@ -55,6 +55,24 @@ class StrExactMatch(InboxBaseModel):
     equals: str
 
 
+class StrOneOfMatch(InboxBaseModel):
+    one_of: list[str]
+    regex: bool = False
+    ignore_case: bool = False
+
+
+class StrPrefixMatch(InboxBaseModel):
+    prefix: str
+
+
+class StrSuffixMatch(InboxBaseModel):
+    suffix: str
+
+
+class StrContainsMatch(InboxBaseModel):
+    contains: str
+
+
 SimpleFileMatch = str | StrExactMatch | StrRegexMatch
 
 
@@ -100,15 +118,25 @@ class IgnoreImportAction(InboxBaseModel):
 ImportAction = ExtractImportAction | IgnoreImportAction
 
 
-class EmailMatchRule(InboxBaseModel):
-    # TODO:
-    pass
+StrMatch = (
+    str
+    | StrPrefixMatch
+    | StrSuffixMatch
+    | StrExactMatch
+    | StrContainsMatch
+    | StrOneOfMatch
+)
+
+
+class EmailFileMatchRule(InboxBaseModel):
+    filepath: StrMatch | None = None
+    subject: StrMatch | None = None
 
 
 class ImportConfig(InboxBaseModel):
     # Name of import rule, for users to read only
     name: str | None = None
-    match: EmailMatchRule | None = None
+    match: EmailFileMatchRule | None = None
     actions: list[ImportAction]
 
 

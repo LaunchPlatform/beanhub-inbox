@@ -15,7 +15,7 @@ from jinja2.sandbox import SandboxedEnvironment
 from lxml import etree
 
 from .data_types import ArchiveInboxAction
-from .data_types import EmailMatchRule
+from .data_types import EmailFileMatchRule
 from .data_types import ExtractImportAction
 from .data_types import IgnoreImportAction
 from .data_types import IgnoreInboxAction
@@ -29,8 +29,13 @@ from .data_types import InboxMatch
 from .data_types import InputConfig
 from .data_types import OutputColumn
 from .data_types import SimpleFileMatch
+from .data_types import StrContainsMatch
 from .data_types import StrExactMatch
+from .data_types import StrMatch
+from .data_types import StrOneOfMatch
+from .data_types import StrPrefixMatch
 from .data_types import StrRegexMatch
+from .data_types import StrSuffixMatch
 from .llm import build_row_model
 from .llm import DEFAULT_COLUMNS
 from .llm import extract
@@ -147,6 +152,42 @@ class FinishExtractingColumn(ProcessImportEvent):
 @dataclasses.dataclass(frozen=True)
 class FinishExtractingRow(ProcessImportEvent):
     row: dict
+
+
+def match_str(pattern: StrMatch, value: str | None) -> typing.Tuple[bool, dict | None]:
+    if value is None:
+        return False, {}
+    if isinstance(pattern, str):
+        match = re.match(pattern, value)
+        if match is None:
+            return False, {}
+        return True, match.groupdict()
+    elif isinstance(pattern, StrExactMatch):
+        return value == pattern.equals, {}
+    elif isinstance(pattern, StrPrefixMatch):
+        return value.startswith(pattern.prefix), {}
+    elif isinstance(pattern, StrSuffixMatch):
+        return value.endswith(pattern.suffix), {}
+    elif isinstance(pattern, StrContainsMatch):
+        return pattern.contains in value, {}
+    elif isinstance(pattern, StrOneOfMatch):
+        if not pattern.regex:
+            if not pattern.ignore_case:
+                return value in pattern.one_of, {}
+            else:
+                return value.lower() in frozenset(
+                    item.lower() for item in pattern.one_of
+                ), {}
+        else:
+            for item in pattern.one_of:
+                match = re.match(
+                    item, value, flags=re.IGNORECASE if pattern.ignore_case else 0
+                )
+                if match is not None:
+                    return True, match.groupdict()
+            return False, {}
+    else:
+        raise ValueError(f"Unexpected str match type {type(pattern)}")
 
 
 def match_inbox_email(email: InboxEmail, match: InboxMatch) -> bool:
@@ -301,9 +342,26 @@ def build_email_file(
     )
 
 
-def match_email_file(match_rule: EmailMatchRule, email_file: EmailFile) -> bool:
-    # TODO: FIXME
-    return True
+def match_email_file(
+    email_file: EmailFile,
+    rule: EmailFileMatchRule,
+    extra_attrs: dict | None = None,
+) -> typing.Tuple[bool, dict]:
+    def get_value(key: str):
+        nonlocal email_file
+        if extra_attrs is not None and key in extra_attrs:
+            return extra_attrs[key]
+        return getattr(email_file, key, None)
+
+    match_vars = {}
+    for key, pattern in rule.model_dump().items():
+        if pattern is None:
+            continue
+        matched, named_group = match_str(getattr(rule, key), get_value(key))
+        if not matched:
+            return False, {}
+        match_vars |= named_group
+    return True, match_vars
 
 
 def extract_json_block(text: str) -> typing.Generator[dict, None, None]:

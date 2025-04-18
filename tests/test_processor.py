@@ -9,10 +9,12 @@ import yaml
 from jinja2.sandbox import SandboxedEnvironment
 from pytest_mock import MockerFixture
 
+from .factories import EmailFileFactory
 from .factories import InboxEmailFactory
 from .factories import MockEmail
 from .factories import MockEmailFactory
 from beanhub_inbox.data_types import ArchiveInboxAction
+from beanhub_inbox.data_types import EmailFileMatchRule
 from beanhub_inbox.data_types import ExtractConfig
 from beanhub_inbox.data_types import ExtractImportAction
 from beanhub_inbox.data_types import IgnoreInboxAction
@@ -25,13 +27,20 @@ from beanhub_inbox.data_types import InboxEmail
 from beanhub_inbox.data_types import InboxMatch
 from beanhub_inbox.data_types import InputConfig
 from beanhub_inbox.data_types import SimpleFileMatch
+from beanhub_inbox.data_types import StrContainsMatch
 from beanhub_inbox.data_types import StrExactMatch
+from beanhub_inbox.data_types import StrOneOfMatch
+from beanhub_inbox.data_types import StrPrefixMatch
 from beanhub_inbox.data_types import StrRegexMatch
+from beanhub_inbox.data_types import StrSuffixMatch
+from beanhub_inbox.processor import EmailFile
 from beanhub_inbox.processor import extract_html_text
 from beanhub_inbox.processor import extract_json_block
 from beanhub_inbox.processor import extract_received_for_email
+from beanhub_inbox.processor import match_email_file
 from beanhub_inbox.processor import match_file
 from beanhub_inbox.processor import match_inbox_email
+from beanhub_inbox.processor import match_str
 from beanhub_inbox.processor import process_imports
 from beanhub_inbox.processor import process_inbox_email
 from beanhub_inbox.processor import render_input_config_match
@@ -40,6 +49,108 @@ from beanhub_inbox.processor import render_input_config_match
 @pytest.fixture
 def template_env() -> SandboxedEnvironment:
     return SandboxedEnvironment()
+
+
+@pytest.mark.parametrize(
+    "pattern, value, expected",
+    [
+        ("^Foo([0-9]+)", "Foo0", (True, {})),
+        ("^Foo([0-9]+)", "Foo", (False, {})),
+        ("^Foo([0-9]+)", "foo0", (False, {})),
+        ("^Foo([0-9]+)", "", (False, {})),
+        ("^Foo([0-9]+)", None, (False, {})),
+        (
+            r"(?P<first_name>\w+) (?P<last_name>\w+)",
+            "Malcolm Reynolds",
+            (True, {"first_name": "Malcolm", "last_name": "Reynolds"}),
+        ),
+        (StrPrefixMatch(prefix="Foo"), "Foo", (True, {})),
+        (StrPrefixMatch(prefix="Foo"), "Foobar", (True, {})),
+        (StrPrefixMatch(prefix="Foo"), "FooBAR", (True, {})),
+        (StrPrefixMatch(prefix="Foo"), "xFooBAR", (False, {})),
+        (StrPrefixMatch(prefix="Foo"), "", (False, {})),
+        (StrPrefixMatch(prefix="Foo"), None, (False, {})),
+        (StrSuffixMatch(suffix="Bar"), "Bar", (True, {})),
+        (StrSuffixMatch(suffix="Bar"), "fooBar", (True, {})),
+        (StrSuffixMatch(suffix="Bar"), "FooBar", (True, {})),
+        (StrSuffixMatch(suffix="Bar"), "Foobar", (False, {})),
+        (StrSuffixMatch(suffix="Bar"), "FooBarx", (False, {})),
+        (StrSuffixMatch(suffix="Bar"), "", (False, {})),
+        (StrSuffixMatch(suffix="Bar"), None, (False, {})),
+        (StrContainsMatch(contains="Foo"), "Foo", (True, {})),
+        (StrContainsMatch(contains="Foo"), "prefix-Foo", (True, {})),
+        (StrContainsMatch(contains="Foo"), "Foo-suffix", (True, {})),
+        (StrContainsMatch(contains="Foo"), "prefix-Foo-suffix", (True, {})),
+        (StrContainsMatch(contains="Foo"), "prefix-Fo-suffix", (False, {})),
+        (StrContainsMatch(contains="Foo"), "", (False, {})),
+        (StrContainsMatch(contains="Foo"), None, (False, {})),
+        (StrOneOfMatch(one_of=["Foo", "Bar"]), "Foo", (True, {})),
+        (StrOneOfMatch(one_of=["Foo", "Bar"]), "Bar", (True, {})),
+        (StrOneOfMatch(one_of=["Foo", "Bar"]), "Eggs", (False, {})),
+        (StrOneOfMatch(one_of=["Foo", "Bar"]), "boo", (False, {})),
+        (StrOneOfMatch(one_of=["Foo", "Bar"], ignore_case=True), "bar", (True, {})),
+        (
+            StrOneOfMatch(one_of=["Foo(.+)", "Bar(.+)"], regex=True),
+            "FooBar",
+            (True, {}),
+        ),
+        (StrOneOfMatch(one_of=["Foo(.+)", "Bar(.+)"], regex=True), "Foo", (False, {})),
+        (StrOneOfMatch(one_of=["Foo(.+)", "Bar(.+)"], regex=True), "foo", (False, {})),
+        (
+            StrOneOfMatch(one_of=["Foo(.+)", "Bar(.+)"], regex=True, ignore_case=True),
+            "foobar",
+            (True, {}),
+        ),
+        (
+            StrOneOfMatch(
+                one_of=["Foo(.+)", "Bar(?P<val>.+)", "bar(.+)"],
+                regex=True,
+                ignore_case=True,
+            ),
+            "bar1234",
+            (True, dict(val="1234")),
+        ),
+    ],
+)
+def test_match_str(
+    pattern: SimpleFileMatch, value: str | None, expected: tuple[bool, dict]
+):
+    assert match_str(pattern, value) == expected
+
+
+@pytest.mark.parametrize(
+    "email_file, rule, extra_attrs, expected",
+    [
+        pytest.param(
+            EmailFileFactory(subject="MOCK_SUBJECT"),
+            EmailFileMatchRule(subject=StrExactMatch(equals="MOCK_SUBJECT")),
+            None,
+            (True, {}),
+            id="match-subject",
+        ),
+        pytest.param(
+            EmailFileFactory(subject="MOCK_SUBJECT"),
+            EmailFileMatchRule(subject=StrExactMatch(equals="OTHER_SUBJECT")),
+            None,
+            (False, {}),
+            id="not-match-subject",
+        ),
+        pytest.param(
+            EmailFileFactory(filepath="/path/to/mock.eml"),
+            EmailFileMatchRule(filepath=StrExactMatch(equals="/path/to/mock.eml")),
+            None,
+            (True, {}),
+            id="match-filepath",
+        ),
+    ],
+)
+def test_match_email_file(
+    email_file: EmailFile,
+    rule: EmailFileMatchRule,
+    extra_attrs: dict,
+    expected: tuple[bool, dict],
+):
+    assert match_email_file(email_file, rule, extra_attrs=extra_attrs) == expected
 
 
 @pytest.mark.parametrize(

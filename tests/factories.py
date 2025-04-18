@@ -9,6 +9,8 @@ from factory import List
 from factory import SubFactory
 from faker import Faker as OriginalFaker
 
+from beanhub_inbox.processor import EmailFile
+
 fake = OriginalFaker()
 
 from beanhub_inbox.data_types import InboxEmail
@@ -111,3 +113,20 @@ class MockEmailFactory(Factory):
 
     class Meta:
         model = MockEmail
+
+
+class EmailFileFactory(Factory):
+    id = Faker("uuid4")
+    subject = Faker("sentence")
+    filepath = Faker("file_path", extension="eml")
+    from_addresses = LazyFunction(lambda: [fake.email()])
+    recipients = LazyFunction(lambda: [fake.email()])
+    headers = Dict(
+        {
+            "Mock-Key": Faker("slug"),
+        }
+    )
+    tags = None
+
+    class Meta:
+        model = EmailFile
