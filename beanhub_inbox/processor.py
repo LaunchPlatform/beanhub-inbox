@@ -1,4 +1,3 @@
-import contextlib
 import csv
 import dataclasses
 import json
@@ -112,7 +111,8 @@ class IgnoreEmail(ProcessImportEvent):
 
 @dataclasses.dataclass(frozen=True)
 class CSVRowExists(ProcessImportEvent):
-    pass
+    output_csv: pathlib.Path
+    lineno: int
 
 
 @dataclasses.dataclass(frozen=True)
@@ -320,8 +320,13 @@ def perform_extract_action(
     parsed_email: fast_mail_parser.PyMail,
     action: ExtractImportAction,
     llm_model: str,
+    workdir_path: pathlib.Path,
 ) -> typing.Generator[ProcessImportEvent, None, None]:
-    output_csv = pathlib.Path(action.extract.output_csv)
+    workdir_path = workdir_path.resolve().absolute()
+    output_csv = workdir_path / action.extract.output_csv
+    output_csv = output_csv.resolve().absolute()
+    if not output_csv.is_relative_to(workdir_path):
+        raise ValueError(f"Output CSV file {output_csv} escapes workdir {workdir_path}")
     if output_csv.exists():
         # TODO: extract this
         with output_csv.open("rt") as fo:
@@ -339,7 +344,11 @@ def perform_extract_action(
                         index + 1,
                         output_csv,
                     )
-                    yield CSVRowExists(email_file=email_file)
+                    yield CSVRowExists(
+                        email_file=email_file,
+                        output_csv=output_csv,
+                        lineno=index + 1 + 1,
+                    )
                     return
 
     if parsed_email.text_html:
@@ -468,7 +477,7 @@ def process_imports(
     inbox_doc: InboxDoc,
     input_dir: pathlib.Path,
     llm_model: str,
-    progress_output_folder: pathlib.Path | None = None,
+    workdir_path: pathlib.Path,
 ) -> typing.Generator[ProcessImportEvent, None, None]:
     template_env = make_environment()
     omit_token = uuid.uuid4().hex
@@ -540,7 +549,7 @@ def process_imports(
                     parsed_email=parsed_email,
                     action=action,
                     llm_model=llm_model,
-                    progress_output_folder=progress_output_folder,
+                    workdir_path=workdir_path,
                 )
             elif isinstance(action, IgnoreImportAction):
                 logger.info("Ignore email %s", email_file.id)

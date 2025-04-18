@@ -5,6 +5,7 @@ from factory import Dict
 from factory import Factory
 from factory import Faker
 from factory import LazyFunction
+from factory import List
 from factory import SubFactory
 from faker import Faker as OriginalFaker
 
@@ -21,7 +22,7 @@ class EmailAttachment:
 
 
 @dataclasses.dataclass(frozen=True)
-class EmailFile:
+class MockEmail:
     headers: dict[str, str]
     subject: str
     from_addresses: list[str]
@@ -70,7 +71,16 @@ class EmailFile:
 
 class InboxEmailFactory(Factory):
     id = Faker("uuid4")
-    mime = Faker("slug")
+    message_id = Faker("slug")
+    headers = Dict(
+        {
+            "mock-header": Faker("slug"),
+        }
+    )
+    subject = Faker("sentence")
+    from_addresses = List([Faker("email")])
+    recipients = List([Faker("email")])
+    tags = List([Faker("slug")])
 
     class Meta:
         model = InboxEmail
@@ -85,7 +95,7 @@ class EmailAttachmentFactory(Factory):
         model = EmailAttachment
 
 
-class EmailFileFactory(Factory):
+class MockEmailFactory(Factory):
     subject = Faker("sentence")
     from_addresses = LazyFunction(lambda: [fake.email()])
     recipients = LazyFunction(lambda: [fake.email()])
@@ -100,4 +110,4 @@ class EmailFileFactory(Factory):
     tags = None
 
     class Meta:
-        model = EmailFile
+        model = MockEmail

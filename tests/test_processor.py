@@ -1,4 +1,6 @@
+import json
 import pathlib
+import re
 import textwrap
 
 import ollama
@@ -8,14 +10,20 @@ from jinja2.sandbox import SandboxedEnvironment
 from pytest_mock import MockerFixture
 
 from .factories import InboxEmailFactory
+from .factories import MockEmail
+from .factories import MockEmailFactory
 from beanhub_inbox.data_types import ArchiveInboxAction
+from beanhub_inbox.data_types import ExtractConfig
+from beanhub_inbox.data_types import ExtractImportAction
 from beanhub_inbox.data_types import IgnoreInboxAction
+from beanhub_inbox.data_types import ImportConfig
 from beanhub_inbox.data_types import InboxAction
 from beanhub_inbox.data_types import InboxActionType
 from beanhub_inbox.data_types import InboxConfig
 from beanhub_inbox.data_types import InboxDoc
 from beanhub_inbox.data_types import InboxEmail
 from beanhub_inbox.data_types import InboxMatch
+from beanhub_inbox.data_types import InputConfig
 from beanhub_inbox.data_types import SimpleFileMatch
 from beanhub_inbox.data_types import StrExactMatch
 from beanhub_inbox.data_types import StrRegexMatch
@@ -430,29 +438,77 @@ def test_extract_json_block(text: str, expected: list[dict]):
 
 
 @pytest.mark.parametrize(
-    "folder, expected",
+    "inbox_doc, email_files, think_results, expected",
     [
-        ("basic", []),
+        (
+            InboxDoc(
+                inputs=[
+                    InputConfig(match="*.eml"),
+                ],
+                imports=[
+                    ImportConfig(
+                        actions=[
+                            ExtractImportAction(
+                                extract=ExtractConfig(output_csv="output.csv")
+                            )
+                        ]
+                    )
+                ],
+            ),
+            {
+                "mock.eml": MockEmailFactory(),
+            },
+            dict(
+                valid=False,
+            ),
+            [
+                "StartProcessingEmail",
+                "MatchImportRule",
+                "StartExtractingColumn",
+                "StartThinking",
+                "UpdateThinking",
+                "FinishThinking",
+                "FinishExtractingColumn",
+                "FinishExtractingRow",
+            ],
+        ),
     ],
 )
 def test_process_imports(
     mocker: MockerFixture,
-    fixtures_folder: pathlib.Path,
-    folder: str,
+    tmp_path: pathlib.Path,
+    inbox_doc: InboxDoc,
+    email_files: dict[str, MockEmail],
+    think_results: dict,
     expected: list,
 ):
-    # mock_chat = mocker.patch.object(ollama, "chat")
+    mock_chat = mocker.patch.object(ollama, "chat")
 
-    folder_path = fixtures_folder / "processor" / folder
-    with open(folder_path / "inbox.yaml", "rt") as fo:
-        payload = yaml.safe_load(fo)
-    doc = InboxDoc.model_validate(payload)
-    assert (
-        list(
-            process_imports(inbox_doc=doc, input_dir=folder_path, llm_model="deepcoder")
+    def chat_side_effect(messages, **kwargs):
+        msg = messages[0]
+        match = re.search("with only one field `(.+?)`", msg.content)
+        key = match.group(1)
+        yield ollama.ChatResponse(
+            message=ollama.Message(
+                role="assistant", content=json.dumps({key: think_results[key]})
+            )
         )
-        == expected
+
+    mock_chat.side_effect = chat_side_effect
+
+    for email_path, email_file in email_files.items():
+        (tmp_path / email_path).write_text(str(email_file.make_msg()))
+
+    events = list(
+        process_imports(
+            inbox_doc=inbox_doc,
+            input_dir=tmp_path,
+            llm_model="deepcoder",
+            workdir_path=tmp_path,
+        )
     )
+    event_types = list(map(lambda event: event.__class__.__name__, events))
+    assert event_types == expected
 
 
 @pytest.mark.parametrize(
