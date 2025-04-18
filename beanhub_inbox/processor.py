@@ -571,11 +571,18 @@ def process_imports(
         matched_import_config = None
         matched_import_config_index = None
         for index, import_config in enumerate(inbox_doc.imports):
-            if import_config.match is None or match_email_file(
-                import_config.match, email_file
-            ):
+            if import_config.match is None:
                 matched_import_config = import_config
                 matched_import_config_index = index
+                break
+            else:
+                email_matched, _ = match_email_file(
+                    email_file=email_file,
+                    rule=import_config.match,
+                )
+                if email_matched:
+                    matched_import_config = import_config
+                    matched_import_config_index = index
                 break
         if matched_import_config is None:
             logger.info(
