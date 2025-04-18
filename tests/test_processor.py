@@ -468,8 +468,16 @@ def test_extract_json_block(text: str, expected: list[dict]):
                 ("StartThinking", lambda e: e.email_file.id == "mock"),
                 ("UpdateThinking", lambda e: e.email_file.id == "mock"),
                 ("FinishThinking", lambda e: e.email_file.id == "mock"),
-                ("FinishExtractingColumn", lambda e: e.email_file.id == "mock"),
-                ("FinishExtractingRow", lambda e: e.email_file.id == "mock"),
+                (
+                    "FinishExtractingColumn",
+                    lambda e: e.email_file.id == "mock"
+                    and e.column.name == "valid"
+                    and e.value == False,
+                ),
+                (
+                    "FinishExtractingRow",
+                    lambda e: e.email_file.id == "mock" and e.row == dict(valid=False),
+                ),
             ],
         ),
     ],
