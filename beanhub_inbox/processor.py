@@ -1,5 +1,6 @@
 import csv
 import dataclasses
+import email
 import json
 import logging
 import os
@@ -8,9 +9,7 @@ import re
 import typing
 import uuid
 
-import fast_mail_parser
 import ollama
-from fast_mail_parser import parse_email
 from jinja2.sandbox import SandboxedEnvironment
 from lxml import etree
 
@@ -321,21 +320,23 @@ def split_emails(email_text: str) -> list[str]:
 
 
 def build_email_file(
-    filepath: pathlib.Path, email: fast_mail_parser.PyMail
+    filepath: pathlib.Path,
+    parsed_email: email.message.EmailMessage,
 ) -> EmailFile:
-    received = email.headers.get("Received")
+    received = parsed_email.get("Received")
     tags = None
     if received is not None:
         email_address = extract_received_for_email(received)
         # TODO: make it possible for tags to work for email collected outside of BeanHub
         tags = parse_tags(email_address, domains=BEANHUB_INBOX_DOMAINS)
-    from_addresses = split_emails(email.headers["From"])
-    recipients = split_emails(email.headers["To"])
+    from_addresses = split_emails(parsed_email["From"])
+    recipients = split_emails(parsed_email["To"])
+    subject = parsed_email["Subject"]
     return EmailFile(
         id=filepath.stem,
         filepath=str(filepath),
-        subject=email.subject,
-        headers=email.headers,
+        subject=subject,
+        headers=dict(parsed_email),
         from_addresses=from_addresses,
         recipients=recipients,
         tags=tags,
@@ -375,7 +376,7 @@ def extract_json_block(text: str) -> typing.Generator[dict, None, None]:
 def perform_extract_action(
     template_env: SandboxedEnvironment,
     email_file: EmailFile,
-    parsed_email: fast_mail_parser.PyMail,
+    parsed_email: email.message.EmailMessage,
     action: ExtractImportAction,
     llm_model: str,
     workdir_path: pathlib.Path,
@@ -409,10 +410,13 @@ def perform_extract_action(
                     )
                     return
 
-    if parsed_email.text_html:
-        text = extract_html_text(parsed_email.text_html[0])
-    elif parsed_email.text_plain:
-        text = parsed_email.text_plain[0]
+    body = parsed_email.get_body()
+    if body.get_content_type() == "text/html":
+        text = extract_html_text(body.get_content())
+    elif body.get_content_type() == "text/text":
+        text = body.get_content()
+    elif body.get_content_type() == "multipart/related":
+        raise ValueError("Email content with embedded image is not supported yet")
     else:
         raise ValueError(
             f"The email {email_file.id} has no no content available for processing"
@@ -564,8 +568,11 @@ def process_imports(
             continue
 
         rel_filepath = filepath.relative_to(input_dir)
-        parsed_email = parse_email(filepath.read_bytes())
-        email_file = build_email_file(filepath=rel_filepath, email=parsed_email)
+        with filepath.open("rb") as fo:
+            parsed_email: email.message.EmailMessage = email.message_from_binary_file(
+                fo, policy=email.policy.EmailPolicy()
+            )
+        email_file = build_email_file(filepath=rel_filepath, parsed_email=parsed_email)
         yield StartProcessingEmail(email_file=email_file)
 
         matched_import_config = None
