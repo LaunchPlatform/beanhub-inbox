@@ -565,7 +565,7 @@ def test_extract_json_block(text: str, expected: list[dict]):
 @pytest.mark.parametrize(
     "inbox_doc, email_files, think_results, expected",
     [
-        (
+        pytest.param(
             InboxDoc(
                 inputs=[
                     InputConfig(match="*.eml"),
@@ -604,6 +604,79 @@ def test_extract_json_block(text: str, expected: list[dict]):
                     lambda e: e.email_file.id == "mock" and e.row == dict(valid=False),
                 ),
             ],
+            id="unconditional-match",
+        ),
+        pytest.param(
+            InboxDoc(
+                inputs=[
+                    InputConfig(match="*.eml"),
+                ],
+                imports=[
+                    ImportConfig(
+                        match=EmailFileMatchRule(
+                            subject=StrExactMatch(equals="MOCK_SUBJECT")
+                        ),
+                        actions=[
+                            ExtractImportAction(
+                                extract=ExtractConfig(output_csv="output.csv")
+                            )
+                        ],
+                    )
+                ],
+            ),
+            {
+                "mock.eml": MockEmailFactory(subject="MOCK_SUBJECT"),
+            },
+            dict(
+                valid=False,
+            ),
+            [
+                ("StartProcessingEmail", lambda e: e.email_file.id == "mock"),
+                ("MatchImportRule", lambda e: e.email_file.id == "mock"),
+                ("StartExtractingColumn", lambda e: e.email_file.id == "mock"),
+                ("StartThinking", lambda e: e.email_file.id == "mock"),
+                ("UpdateThinking", lambda e: e.email_file.id == "mock"),
+                ("FinishThinking", lambda e: e.email_file.id == "mock"),
+                (
+                    "FinishExtractingColumn",
+                    lambda e: e.email_file.id == "mock"
+                    and e.column.name == "valid"
+                    and e.value == False,
+                ),
+                (
+                    "FinishExtractingRow",
+                    lambda e: e.email_file.id == "mock" and e.row == dict(valid=False),
+                ),
+            ],
+            id="rule-match",
+        ),
+        pytest.param(
+            InboxDoc(
+                inputs=[
+                    InputConfig(match="*.eml"),
+                ],
+                imports=[
+                    ImportConfig(
+                        match=EmailFileMatchRule(subject=StrExactMatch(equals="OTHER")),
+                        actions=[
+                            ExtractImportAction(
+                                extract=ExtractConfig(output_csv="output.csv")
+                            )
+                        ],
+                    )
+                ],
+            ),
+            {
+                "mock.eml": MockEmailFactory(subject="MOCK_SUBJECT"),
+            },
+            dict(
+                valid=False,
+            ),
+            [
+                ("StartProcessingEmail", lambda e: e.email_file.id == "mock"),
+                ("NoMatch", lambda e: e.email_file.id == "mock"),
+            ],
+            id="not-match",
         ),
     ],
 )
