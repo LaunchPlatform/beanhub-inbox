@@ -4,10 +4,10 @@ Email processing engine for archiving and extracting financial data
 This is a Python library for the email processing engine.
 For the end-users, you may want to look into our command line tool [beanhub-cli](https://beanhub-cli-docs.beanhub.io/) that has beanhub-inbox integrated.
 
-## Screenshots
+## Demo
 
 <p align="center">
-  FIXME
+  <video src="https://github.com/user-attachments/assets/eb496dab-cd95-4aca-8a29-89ff9d52570d" autoplay muted>
 </p>
 
 # Sponsor
