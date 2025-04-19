@@ -1,4 +1,4 @@
-# beanhub-inbox[![CircleCI](https://dl.circleci.com/status-badge/img/gh/LaunchPlatform/beanhub-inbox/tree/master.svg?style=svg)](https://dl.circleci.com/status-badge/redirect/gh/LaunchPlatform/beanhub-inbox/tree/master)
+# beanhub-inbox [![CircleCI](https://dl.circleci.com/status-badge/img/gh/LaunchPlatform/beanhub-inbox/tree/master.svg?style=svg)](https://dl.circleci.com/status-badge/redirect/gh/LaunchPlatform/beanhub-inbox/tree/master)
 
 Email processing engine for archiving and extracting financial data
 This is a Python library for the email processing engine.
