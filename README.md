@@ -1,2 +1,19 @@
-# beanhub-inbox
+# beanhub-inbox[![CircleCI](https://dl.circleci.com/status-badge/img/gh/LaunchPlatform/beanhub-inbox/tree/master.svg?style=svg)](https://dl.circleci.com/status-badge/redirect/gh/LaunchPlatform/beanhub-inbox/tree/master)
+
 Email processing engine for archiving and extracting financial data
+This is a Python library for the email processing engine.
+For the end-users, you may want to look into our command line tool [beanhub-cli](https://beanhub-cli-docs.beanhub.io/) that has beanhub-inbox integrated.
+
+## Screenshots
+
+<p align="center">
+  FIXME
+</p>
+
+# Sponsor
+
+<p align="center">
+  <a href="https://beanhub.io"><img src="https://github.com/LaunchPlatform/beanhub-cli/raw/master/assets/beanhub.svg?raw=true" alt="BeanHub logo" /></a>
+</p>
+
+A modern accounting book service based on the most popular open source version control system [Git](https://git-scm.com/) and text-based double entry accounting book software [Beancount](https://beancount.github.io/docs/index.html).
