@@ -9,11 +9,10 @@ from factory import List
 from factory import SubFactory
 from faker import Faker as OriginalFaker
 
+from beanhub_inbox.data_types import InboxEmail
 from beanhub_inbox.processor import EmailFile
 
 fake = OriginalFaker()
-
-from beanhub_inbox.data_types import InboxEmail
 
 
 @dataclasses.dataclass(frozen=True)
