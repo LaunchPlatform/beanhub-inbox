@@ -33,7 +33,7 @@ wheels = [
 [[package]]
 name = "beanhub-inbox"
 version = "0.2.2"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "email-validator" },
     { name = "jinja2" },
