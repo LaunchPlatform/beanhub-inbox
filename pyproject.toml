@@ -22,3 +22,7 @@ dev = [
     "pytest-factoryboy>=2.7.0",
     "pytest-mock>=3.14.0",
 ]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
